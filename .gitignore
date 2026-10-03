@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+*.jpg
+*.jpeg
+*.png
+*.jsonl
+.env*
+.dev.vars*
+.wrangler/
+node_modules/
+data/
+snapshots/
