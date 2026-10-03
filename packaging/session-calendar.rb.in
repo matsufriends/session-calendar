@@ -1,0 +1,13 @@
+cask "session-calendar" do
+  version "0.1.0"
+  sha256 "@SHA256@"
+
+  url "@ARCHIVE_URL@"
+  name "Session Calendar"
+  desc "Menu bar calendar and private metadata sync for Claude Code and Codex"
+  homepage "https://github.com/matsufriends/session-calendar"
+
+  depends_on macos: ">= :sonoma"
+
+  app "SessionCalendar.app"
+end

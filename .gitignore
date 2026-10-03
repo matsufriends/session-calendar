@@ -12,3 +12,6 @@ data/
 snapshots/
 cloud/public/
 .sync-state
+native/.build/
+dist/
+packaging/session-calendar.rb

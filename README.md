@@ -5,7 +5,7 @@ Claude Code / Codex CLI のローカル履歴を、Asia/Tokyo の週カレンダ
 ## 起動
 
 ```sh
-cd /Users/matsufriends/Documents/Codex/2026-10-03/task-5/session-calendar
+cd session-calendar
 python3 app.py
 ```
 
@@ -27,8 +27,26 @@ Claude ログはJSONをパースして日時・cwd・ID・明示タイトルだ�
 
 終了日時は不明として扱います。「最後の記録」はClaudeの最後のメッセージ日時、Codexのタイトル索引のupdated_atであり、終了を意味しません。カレンダーのカード高さと重なり回避の幅は表示上の配置で、実際の所要時間ではありません。
 
-外部通信、分析、AI要約、クラウド保存はありません。HTTPは127.0.0.1のみ待受け、Host検査とCSPを適用します。認証情報を読みません。読み取れないファイルはスキップし警告します。フォルダがない場合はそのツールは0件です。
+Pythonローカル版は外部通信・クラウド保存を行いません。HTTPは127.0.0.1のみ待受け、Host検査とCSPを適用します。認証情報を読みません。読み取れないファイルはスキップし警告します。フォルダがない場合はそのツールは0件です。
 
 ## 検証
 
 `python3 -m py_compile app.py`、実データ抽出と返却スキーマ検査、ブラウザーで週表示・一覧・フィルター・詳細の確認。
+
+## Macメニューバーアプリ
+
+macOS 14以降、XcodeのSwift toolchainでビルドできます。
+
+```sh
+swift test --package-path native
+zsh build-mac.sh
+dist/SessionCalendar.app/Contents/MacOS/SessionCalendar --self-test
+```
+
+`--self-test` は人工データと同梱HTMLだけを検査し、履歴・Keychain・ネットワークを使用せず終了します。通常起動するとローカル履歴を読みます。初回は同期が無効で、ユーザーが設定した同期先とKeychainの資格情報を使用して有効にした場合、5分ごとにメタデータだけを送ります。「停止」で自動同期を止められます。明示タイトルの送信は初期状態で無効です。ログイン時起動はメニュー操作で登録します。
+
+現在の同期方式は専用Bearer tokenです。新しい秘密値を外部へ登録する工程は別途承認してから行います。サーバーのAccess設定と未認証拒否を確認するまで実データ同期を開始しないでください。クラウド構成は [CLOUD_SYNC.md](CLOUD_SYNC.md) を参照してください。
+
+通常のローカルビルドはad-hoc署名です。`SIGN_IDENTITY`を指定した署名や公証は別工程で、配布可能なDeveloper ID署名・公証をこのビルドだけでは保証しません。`UNIVERSAL=1 zsh build-mac.sh` で両アーキテクチャをビルドします。
+
+Homebrew cask候補は `packaging/session-calendar.rb.in` です。公開先が確定した後、`python3 scripts/make_cask.py --url <archive-url>` でローカルのZIPからSHA256を設定します。公開releaseとtap更新はまだ行っていません。
