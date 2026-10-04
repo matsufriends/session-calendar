@@ -128,6 +128,7 @@ enum Spacing {
 @main struct SessionCalendarApp: App {
     @StateObject private var model: AppModel
     init() {
+        if CommandLine.arguments.contains("--authorize-empty-sync") { EmptySyncProbe.run(allowKeychainPrompt: true) }
         if CommandLine.arguments.contains("--probe-empty-sync") { EmptySyncProbe.run() }
         if CommandLine.arguments.contains("--provision-key") {
             DispatchQueue.global().asyncAfter(deadline: .now()+15) { fputs("Keychain provisioning exceeded 15s; no prompt was accepted\n",stderr); exit(2) }

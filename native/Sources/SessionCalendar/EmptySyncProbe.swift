@@ -2,15 +2,16 @@ import Foundation
 
 // Explicit diagnostic command: never instantiates AppModel or reads history.
 enum EmptySyncProbe {
-    static func run() -> Never {
-        DispatchQueue.global().asyncAfter(deadline: .now()+15) {
-            fputs("Empty signed probe exceeded 15s; no prompt was accepted\n",stderr);exit(2)
+    static func run(allowKeychainPrompt: Bool = false) -> Never {
+        DispatchQueue.global().asyncAfter(deadline: .now()+(allowKeychainPrompt ? 120 : 15)) {
+            fputs("Empty signed probe timed out; no automatic prompt approval\n",stderr);exit(2)
         }
         Task.detached {
             do {
-                fputs("probe: reading dedicated key without UI\n",stderr)
-                guard let key=Credential.load() else { throw NSError(domain:"ProbeKeyUnavailable",code:1) }
-                fputs("probe: key available; sending empty fixture\n",stderr)
+                fputs(allowKeychainPrompt ? "probe: waiting for user-authorized Keychain access\n" : "probe: reading dedicated key without UI\n",stderr)
+                guard let key=(allowKeychainPrompt ? Credential.loadForUserInitiatedProbe() : Credential.load()) else { throw NSError(domain:"ProbeKeyUnavailable",code:1) }
+                guard key.publicKey.x963Representation.hex == "0447784cde5c9e07abb63f19e39489a61f1c71dd56a5314c17c9d1b542fea70c6b09d38d1c046a83b4af93ec357a7d816c3d67010e62a4caaec611170f3b7bfb6f" else { throw NSError(domain:"RegisteredPublicKeyMismatch",code:1) }
+                fputs("probe: registered key available; sending empty fixture\n",stderr)
                 let base="https://session-calendar-sync.matsufriends.com"
                 let body=Data("{\"sessions\":[],\"timezone\":\"Asia/Tokyo\"}".utf8)
                 var request=URLRequest(url:URL(string:base+"/api/sync")!);request.httpMethod="PUT";request.httpBody=body;request.timeoutInterval=20

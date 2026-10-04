@@ -52,3 +52,5 @@ dist/SessionCalendar.app/Contents/MacOS/SessionCalendar --self-test
 Homebrew cask候補は `packaging/session-calendar.rb.in` です。公開先が確定した後、`python3 scripts/make_cask.py --url <archive-url>` でローカルのZIPからSHA256を設定します。公開releaseとtap更新はまだ行っていません。
 
 `--provision-key` は履歴を読まず専用署名鍵をKeychainへ作成し、公開鍵だけを標準出力へ返します。既存鍵を読み取れない場合は上書きせず失敗します。`--probe-empty-sync` は指定済みの専用ホストへ空snapshotだけを送り、再送・閲覧・偽署名の拒否を検査します。15秒で終了し、権限ダイアログは操作しません。Keychainのアクセス許可が必要な環境では、ユーザーによる確認が必要です。
+
+本人が正規のKeychain認証要求を確認する場合だけ、`--authorize-empty-sync`を手動実行します。専用既存鍵の読取1回だけを要求し、登録公開鍵との一致を確認して空fixtureを送ります。履歴読取・鍵の生成/削除・ACL書換・自動起動を行いません。120秒で終了します。macOSのダイアログで項目とアプリが一致していることを確認し、必要なら本人がMacのキーチェーンパスワードを入力して「今回のみ許可／Allow Once」を選びます。恒久許可やアクセス制御の編集はこの検査には必要ありません。このモードは自動検査から起動しません。

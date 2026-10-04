@@ -5,15 +5,20 @@ import CryptoKit
 enum Credential {
     private static let service = "com.matsufriends.SessionCalendar"
     private static let account = "signing-key-v1"
-    static func load() -> P256.Signing.PrivateKey? {
+    static func load() -> P256.Signing.PrivateKey? { read(allowInteraction: false) }
+    // Only the explicit, manually launched empty-fixture command calls this.
+    // SecItemCopyMatching asks macOS for access; no ACL is edited by the app.
+    static func loadForUserInitiatedProbe() -> P256.Signing.PrivateKey? { read(allowInteraction: true) }
+    private static func read(allowInteraction: Bool) -> P256.Signing.PrivateKey? {
         // Legacy login-keychain items ignore kSecUseAuthenticationUIFail on macOS.
         // Disable optional interaction for this process as well; never alter ACLs.
-        guard SecKeychainSetUserInteractionAllowed(false)==errSecSuccess else { return nil }
-        let query: [String: Any] = [kSecClass as String:kSecClassGenericPassword,kSecAttrService as String:service,kSecAttrAccount as String:account,kSecReturnData as String:true,kSecMatchLimit as String:kSecMatchLimitOne,kSecUseAuthenticationUI as String:kSecUseAuthenticationUIFail]
+        guard SecKeychainSetUserInteractionAllowed(allowInteraction)==errSecSuccess else { return nil }
+        defer { if allowInteraction { SecKeychainSetUserInteractionAllowed(false) } }
+        let query: [String: Any] = [kSecClass as String:kSecClassGenericPassword,kSecAttrService as String:service,kSecAttrAccount as String:account,kSecReturnData as String:true,kSecMatchLimit as String:kSecMatchLimitOne,kSecUseAuthenticationUI as String:allowInteraction ? kSecUseAuthenticationUIAllow : kSecUseAuthenticationUIFail]
         var result: CFTypeRef?
         let status=SecItemCopyMatching(query as CFDictionary,&result)
         guard status==errSecSuccess,let data=result as? Data else {
-            if status != errSecItemNotFound { fputs("Dedicated Keychain read failed: OSStatus \(status); interaction disabled\n",stderr) }
+            if status != errSecItemNotFound { fputs("Dedicated Keychain read failed: OSStatus \(status); interaction=\(allowInteraction)\n",stderr) }
             return nil
         }
         return try? P256.Signing.PrivateKey(rawRepresentation:data)
