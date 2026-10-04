@@ -58,6 +58,23 @@ test('dot-task markers do not occupy CLI duration lanes',()=>{
  assert.match(source,/layouts\.set\(s\.tool\+':'\+s\.id,lane\)/);
  assert.match(source,/height:12px!important;min-height:12px!important;max-height:12px!important/);
 });
+test('dot-task list cards keep readable flow layout across mode changes',()=>{
+ const apply=runInNewContext(definition('instant')+'\n'+definition('eventAt')+'\n'+definition('applyEventLayout')+';applyEventLayout',{Date,Intl});
+ const task={id:'fixture-task-1234',source:'dot-task',task_registered_at:'2026-10-04T11:15:00Z'};
+ const listCard={style:{},classList:{values:[],add(value){this.values.push(value)}}};
+ apply(listCard,task,{task:true,lane:0},1,'list');
+ assert.deepEqual(listCard.classList.values,['task-card']);
+ assert.equal(listCard.style.width,undefined);
+ assert.equal(listCard.style.height,undefined);
+ assert.equal(listCard.style.top,undefined);
+ const weekMarker={style:{},classList:{values:[],add(value){this.values.push(value)}}};
+ apply(weekMarker,task,{task:true,lane:0},1,'week');
+ assert.deepEqual(weekMarker.classList.values,['task-marker']);
+ assert.equal(weekMarker.style.width,'12px');
+ assert.equal(weekMarker.style.height,'12px');
+ assert.match(source,/applyEventLayout\(e,s,layouts\.get\([^;]+laneCount,\$\('view'\)\.value\)/);
+ assert.match(source,/\.list \.event\.dot-task\.task-card\{height:auto;min-height:0;max-height:none/);
+});
 test('overlapping layouts identify records by the source tool and id contract',()=>{
  const layout=runInNewContext(definition('instant')+'\n'+definition('layoutSessionItems')+';layoutSessionItems(items)',{
   Date,
