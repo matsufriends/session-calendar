@@ -3,9 +3,10 @@
 :root{--bg:#fff;--fg:#1f2421;--sub:#6b736e;--line:#e6e8e5;--head:#fafbfa;--today:#1a73e8;--now:#d93025;--codex:#2f7d63;--claude:#c26a2b;--pop:#fff;--shadow:0 6px 24px #0003;font:13px/1.4 -apple-system,BlinkMacSystemFont,"Hiragino Sans",sans-serif;color:var(--fg);background:var(--bg)}
 @media(prefers-color-scheme:dark){:root{--bg:#1c1d1f;--fg:#e8eae9;--sub:#9aa19d;--line:#2e3032;--head:#222326;--today:#8ab4f8;--now:#f28b82;--codex:#5fbf9a;--claude:#e59a60;--pop:#2a2c2f;--shadow:0 6px 24px #0008}}
 *{box-sizing:border-box}html,body{margin:0;height:100%}body{display:flex;flex-direction:column}
-header{display:flex;align-items:center;gap:8px;padding:10px 16px;border-bottom:1px solid var(--line)}
+header{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:10px 16px;border-bottom:1px solid var(--line)}
 button{font:inherit;color:inherit;background:none;border:1px solid var(--line);border-radius:6px;padding:6px 12px;cursor:pointer}button:hover{background:var(--head)}
-#range{font-size:18px;font-weight:600;margin-left:8px}
+#range{font-size:18px;font-weight:600;margin:0 8px}
+#tools{display:inline-flex}#tools button{border-radius:0;margin-left:-1px}#tools button:first-child{border-radius:6px 0 0 6px;margin-left:0}#tools button:last-child{border-radius:0 6px 6px 0}#tools button[aria-pressed=true]{background:var(--fg);color:var(--bg);border-color:var(--fg)}
 #grid{flex:1;overflow:auto;position:relative}
 .cols{display:grid;grid-template-columns:52px repeat(var(--days),minmax(0,1fr));min-width:calc(52px + var(--days)*90px)}
 .dayhead{position:sticky;top:0;z-index:3;height:52px;background:var(--bg);border-bottom:1px solid var(--line);text-align:center;padding:6px 0;color:var(--sub);font-size:12px}
@@ -22,12 +23,13 @@ button{font:inherit;color:inherit;background:none;border:1px solid var(--line);b
 #pop[hidden]{display:none}#pop h2{margin:0 0 6px;font-size:15px;overflow-wrap:anywhere}#pop p{margin:2px 0;color:var(--sub);overflow-wrap:anywhere}
 #msg{position:absolute;inset:0;display:grid;place-items:center;color:var(--sub);pointer-events:none}
 </style>
-<header><button id="prev" aria-label="前へ">‹</button><button id="today">今日</button><button id="next" aria-label="次へ">›</button><span id="range"></span></header>
+<header><button id="prev" aria-label="前へ">‹</button><button id="today">今日</button><button id="next" aria-label="次へ">›</button><span id="range"></span><span id="tools" role="group" aria-label="ツール"><button data-tool="">全て</button><button data-tool="Codex">Codex</button><button data-tool="Claude">Claude Code</button></span></header>
 <div id="grid"><div id="msg">読み込み中…</div></div>
 <div id="pop" hidden></div>
 <script>
 const HEAD=52,DAY=86400000,CAP=2*3600000,$=id=>document.getElementById(id),WEEK=['日','月','火','水','木','金','土'];
-let HOUR=48,sessions=[],anchor=dayKey(Date.now());
+let HOUR=48,sessions=[],anchor=dayKey(Date.now()),tool='';
+try{tool=localStorage.getItem('tool')||''}catch{}
 function instant(t){if(typeof t!=='string'||!/T\d{2}:\d{2}.*(Z|[+-]\d{2}:?\d{2})$/i.test(t))return null;const n=Date.parse(t);return Number.isFinite(n)?n:null}
 function dayKey(n){return new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Tokyo'}).format(new Date(n))}
 function midnight(d){return Date.parse(d+'T00:00:00+09:00')}
@@ -44,12 +46,12 @@ function el(tag,cls,text){const e=document.createElement(tag);if(cls)e.className
 function dayCount(){return innerWidth<700?1:7}
 function firstDay(){if(dayCount()===1)return anchor;const w=new Date(midnight(anchor)+12*3600000).getUTCDay();return addDays(anchor,-((w+6)%7))}
 function render(){
- hidePop();HOUR=Math.max(16,($('grid').clientHeight-HEAD-1)/24);const n=dayCount(),first=firstDay(),grid=$('grid'),cols=el('div','cols'),today=dayKey(Date.now());
+ hidePop();for(const b of $('tools').children)b.setAttribute('aria-pressed',String(b.dataset.tool===tool));HOUR=Math.max(32,($('grid').clientHeight-HEAD)/12);const n=dayCount(),first=firstDay(),grid=$('grid'),cols=el('div','cols'),today=dayKey(Date.now());
  cols.style.setProperty('--days',n);cols.style.setProperty('--hour',HOUR+'px');cols.append(el('div','corner'));
  const days=Array.from({length:n},(_,i)=>addDays(first,i));
  for(const d of days){const h=el('div','dayhead'+(d===today?' today':''),WEEK[new Date(midnight(d)+12*3600000).getUTCDay()]);h.append(el('b','',String(Number(d.slice(8)))));cols.append(h)}
  const gutter=el('div','gutter');for(let h=1;h<24;h++){const t=el('span','',h+':00');t.style.top=h*HOUR+'px';gutter.append(t)}cols.append(gutter);
- for(const d of days){const col=el('div','day');for(const g of layout(segments(sessions,d))){const e=el('div','ev '+g.s.tool+(g.cut?' cut':'')),top=(g.top-midnight(d))/3600000*HOUR,height=(g.bottom-g.top)/3600000*HOUR;Object.assign(e.style,{top:top+'px',height:height-1+'px',left:`calc(${g.col}/${g.cols}*100% + 1px)`,width:`calc(100%/${g.cols} - 2px)`});e.append(el('b','',workTitle(g.s)));if(height>30)e.append(el('span','',hm(instant(g.s.start))+' '+(g.s.project||'')));e.onclick=ev=>{ev.stopPropagation();showPop(g.s,e)};col.append(e)}if(d===today){const now=el('div','now');now.style.top=(Date.now()-midnight(d))/3600000*HOUR+'px';col.append(now)}cols.append(col)}
+ for(const d of days){const col=el('div','day');for(const g of layout(segments(sessions.filter(s=>!tool||s.tool===tool),d))){const e=el('div','ev '+g.s.tool+(g.cut?' cut':'')),top=(g.top-midnight(d))/3600000*HOUR,height=(g.bottom-g.top)/3600000*HOUR;Object.assign(e.style,{top:top+'px',height:height-1+'px',left:`calc(${g.col}/${g.cols}*100% + 1px)`,width:`calc(100%/${g.cols} - 2px)`});e.append(el('b','',workTitle(g.s)));if(height>30)e.append(el('span','',hm(instant(g.s.start))+' '+(g.s.project||'')));e.onclick=ev=>{ev.stopPropagation();showPop(g.s,e)};col.append(e)}if(d===today){const now=el('div','now');now.style.top=(Date.now()-midnight(d))/3600000*HOUR+'px';col.append(now)}cols.append(col)}
  grid.replaceChildren(cols);
  $('range').textContent=n===1?`${first.slice(0,4)}年${Number(first.slice(5,7))}月${Number(first.slice(8))}日`:`${first.slice(0,4)}年${Number(first.slice(5,7))}月`;
 }
@@ -57,6 +59,7 @@ function showPop(s,target){const p=$('pop'),a=instant(s.start),b=lastOf(s),r=tar
 function hidePop(){$('pop').hidden=true}
 function scrollToNow(){const t=(Date.now()-midnight(dayKey(Date.now())))/3600000;$('grid').scrollTop=Math.max(0,(t-1.5)*HOUR)}
 async function load(){try{const r=await fetch('/api/sessions');if(!r.ok)throw Error();const data=await r.json();sessions=(data.sessions||[]).filter(s=>instant(s.start)!==null&&s.tool);render();scrollToNow()}catch{$('grid').replaceChildren(el('div','',''));$('grid').firstChild.id='msg';$('msg').textContent='履歴を読み込めませんでした'}}
+for(const b of $('tools').children)b.onclick=()=>{tool=b.dataset.tool;try{localStorage.setItem('tool',tool)}catch{}render()};
 $('prev').onclick=()=>{anchor=addDays(anchor,-dayCount());render()};$('next').onclick=()=>{anchor=addDays(anchor,dayCount());render()};$('today').onclick=()=>{anchor=dayKey(Date.now());render();scrollToNow()};
 document.addEventListener('click',e=>{if(!$('pop').contains(e.target))hidePop()});document.addEventListener('keydown',e=>{if(e.key==='Escape')hidePop()});$('grid').addEventListener('scroll',hidePop);
 let frame=0;addEventListener('resize',()=>{cancelAnimationFrame(frame);frame=requestAnimationFrame(render)});setInterval(()=>{if($('pop').hidden)render()},60000);
