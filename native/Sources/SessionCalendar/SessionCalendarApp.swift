@@ -103,7 +103,7 @@ enum Spacing {
             } catch { enabled=false;defaults.set(false,forKey:"syncEnabled");status="接続確認に失敗しました";errorMessage="空データの認証確認が完了していません" }
         }
     }
-    func shutdown() { pause(); residentKey=nil }
+    func shutdown() { task?.cancel(); residentKey=nil }
     func beginSettings() { pause(); draftEndpoint = endpoint; showSettings = true }
     func saveConnection() {
         guard Self.syncURL(draftEndpoint) != nil else { errorMessage = "HTTPSの /api/sync URLを指定してください"; return }
@@ -151,6 +151,7 @@ enum Spacing {
         NSWorkspace.shared.open(url)
     }
     func registerLogin() {
+        if SMAppService.mainApp.status == .enabled { return }
         do { try SMAppService.mainApp.register() }
         catch { errorMessage = "ログイン時の起動を登録できませんでした" }
     }
@@ -216,7 +217,6 @@ struct Dashboard: View {
             HStack {
                 Menu("起動設定") {
                     Button("ログイン時に起動を登録") { model.registerLogin() }
-                    Button("ログイン時に起動を解除") { do { try SMAppService.mainApp.unregister() } catch { model.errorMessage = "起動設定を解除できませんでした" } }
                 }
                 Spacer()
                 Button("終了") { model.shutdown(); NSApplication.shared.terminate(nil) }
