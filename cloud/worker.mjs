@@ -71,12 +71,19 @@ function text(value, max) { return typeof value === 'string' && value.length > 0
 function timestamp(value) { return text(value,40) && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$/.test(value) && Number.isFinite(Date.parse(value)); }
 export function validateSnapshot(data) {
   if (!exact(data,['sessions','timezone']) || data.timezone !== 'Asia/Tokyo' || !Array.isArray(data.sessions) || data.sessions.length > 20000) return false;
-  const seen = new Set();
+  const seen = new Set(), sessionIds = new Set(), taskIds = new Set();
   return data.sessions.every(s=> {
+    if (s?.source === 'dot-task') {
+      if (!exact(s,['id','source','tool','task_registered_at','latest_turn_status','snapshot_observed_at','project','title']) ||
+        !text(s.id,128) || !/^[A-Za-z0-9._-]+$/.test(s.id) || s.tool!=='ChatGPT' || !timestamp(s.task_registered_at) ||
+        !text(s.latest_turn_status,40) || !/^[A-Za-z0-9 _-]+$/.test(s.latest_turn_status) || !timestamp(s.snapshot_observed_at) ||
+        !text(s.project,200) || /[\\/]/.test(s.project) || !text(s.title,300)) return false;
+      if (taskIds.has(s.id)) return false; taskIds.add(s.id); return true;
+    }
     if (!exact(s,['id','tool','start','last_activity','end','project','title'])) return false;
     if (!text(s.id,100) || !['Codex','Claude'].includes(s.tool) || !timestamp(s.start) || !(s.last_activity===null || timestamp(s.last_activity)) || s.end!==null || !text(s.project,200) || /[\\/]/.test(s.project) || !text(s.title,300)) return false;
-    const key=s.tool+':'+s.id;if(seen.has(key))return false;seen.add(key);return true;
-  });
+    const key=s.tool+':'+s.id;if(seen.has(key))return false;seen.add(key);sessionIds.add(s.id);return true;
+  }) && ![...taskIds].some(id=>sessionIds.has(id));
 }
 async function readLimited(request) {
   const reader=request.body?.getReader(); if(!reader)throw Error('empty');

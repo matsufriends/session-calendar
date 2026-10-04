@@ -3,10 +3,18 @@ import assert from 'node:assert/strict';
 import worker,{validateSnapshot,writerAuthorized,viewerAuthorized} from '../cloud/worker.mjs';
 const empty={sessions:[],timezone:'Asia/Tokyo'};
 const record={id:'test-session',tool:'Claude',start:'2026-10-03T01:00:00Z',last_activity:null,end:null,project:'Example',title:'Example session'};
+const dotTask={id:'fixture-task-1',source:'dot-task',tool:'ChatGPT',task_registered_at:'2026-10-03T01:00:00Z',latest_turn_status:'completed',snapshot_observed_at:'2026-10-04T01:00:00Z',project:'FixtureProject',title:'Fixture task'};
 const req=(path,options={})=>new Request('https://example.test'+path,options);
 test('snapshot allowlist rejects conversation, paths, invalid times, duplicates',()=>{
  assert.ok(validateSnapshot(empty));assert.ok(validateSnapshot({...empty,sessions:[record]}));
  for(const bad of [{...empty,body:'private'}, {...empty,sessions:[{...record,body:'private'}]}, {...empty,sessions:[{...record,project:'/Users/person/repo'}]}, {...empty,sessions:[{...record,start:'invalid'}]}, {...empty,sessions:[{...record,end:'2026-10-03T02:00:00Z'}]}, {...empty,sessions:[record,record]}]) assert.equal(validateSnapshot(bad),false);
+});
+test('dot-task snapshot schema preserves source and rejects unknown fields or CLI ID collisions',()=>{
+ assert.ok(validateSnapshot({...empty,sessions:[dotTask]}));
+ assert.equal(validateSnapshot({...empty,sessions:[{...dotTask,conversation:'fixture secret'}]}),false);
+ assert.equal(validateSnapshot({...empty,sessions:[{...dotTask,snapshot_observed_at:'invalid'}]}),false);
+ assert.equal(validateSnapshot({...empty,sessions:[dotTask,{...record,id:dotTask.id}]}),false);
+ assert.equal(validateSnapshot({...empty,sessions:[dotTask,{...dotTask}]}),false);
 });
 test('viewer fails closed on missing configuration, forged token, invalid team domain',async()=>{
  assert.equal(await viewerAuthorized(req('/'),{}),false);

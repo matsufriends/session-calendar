@@ -16,3 +16,15 @@ test('privacy badge distinguishes anonymous format, explicit titles and no recei
  assert.match(label([{id:'fixture-1',tool:'Codex',title:'Codex セッション fixture-'}]),/匿名タイトル形式/);
  assert.match(label([{id:'fixture-1',tool:'Codex',title:'Fixture task'}]),/タイトルを含む/);
 });
+test('dot task UI uses registration markers, snapshot freshness and a distinct task link',()=>{
+ const helpers=definition('eventAt')+'\n'+definition('statusLabel')+';({eventAt,statusLabel})';
+ const {eventAt,statusLabel}=runInNewContext(helpers,{});
+ const task={source:'dot-task',task_registered_at:'2026-10-03T01:00:00Z',latest_turn_status:'completed'};
+ assert.equal(eventAt(task),task.task_registered_at);
+ assert.match(statusLabel(task),/直近の実行は終了/);
+ assert.match(statusLabel(task),/タスク全体の完了ではありません/);
+ assert.match(source,/登録日時から実行開始・終了・所要時間を推定していません/);
+ assert.match(source,/snapshotのため、現在の状態と異なる可能性があります/);
+ assert.match(source,/codex:\/\/threads\//);
+ assert.match(source,/s\.source==='dot-task'\?'dot-task'/);
+});

@@ -27,6 +27,33 @@ Claude ログはJSONをパースして日時・cwd・ID・明示タイトルだ�
 
 終了日時は不明として扱います。「最後の記録」はClaudeの最後のメッセージ日時、Codexのタイトル索引のupdated_atであり、終了を意味しません。カレンダーのカード高さと重なり回避の幅は表示上の配置で、実際の所要時間ではありません。
 
+### dot cloud task snapshotの手動表示
+
+dot cloud taskの正式な公開API接続は行わず、公式 `cloud_threads` のread/listから取得した `id`、`attachedAt`、`latestTurn.status`、ユーザー表示タイトル、projectだけを含むJSONを明示的に指定した場合に限りローカル表示します。例:
+
+```json
+{
+  "snapshot_observed_at": "2026-10-04T01:00:00Z",
+  "tasks": [
+    {
+      "id": "fixture-task-1",
+      "attachedAt": "2026-10-03T01:00:00Z",
+      "latestTurn": { "status": "completed" },
+      "title": "Fixture task",
+      "project": "FixtureProject"
+    }
+  ]
+}
+```
+
+```sh
+python3 app.py --dot-snapshot /path/to/task-snapshot.json
+```
+
+タイトルとprojectは省略可能です。`snapshot_observed_at`を省略すると、ローカルで読み込んだ時刻を観測時刻として表示します。未知フィールドは保存・表示せず、本文や `latestTurn` のstatus以外の情報は取り込みません。既存CLI sessionとのID衝突、同一snapshot内の重複ID、必須項目欠落、不正JSONはsnapshot全体を拒否します。更新操作でファイルを読み直すと、同じtask IDの新snapshotが表示に反映されます。HTTPから任意ファイルを指定して読み取る機能はありません。
+
+カード位置と日時ラベルは「タスク登録日時」です。実行開始、終了、所要時間を推定しません。表示状態は手動snapshotの観測時点のもので、現在状態と異なる可能性があります。`latestTurn.status` が `completed` の場合も、直近の実行が終了した意味であり、タスク全体の完了とは表示しません。元タスクはCodexの `codex://threads/<id>` リンクから開きます。
+
 Pythonローカル版は外部通信・クラウド保存を行いません。HTTPは127.0.0.1のみ待受け、Host検査とCSPを適用します。認証情報を読みません。読み取れないファイルはスキップし警告します。フォルダがない場合はそのツールは0件です。
 
 ## 検証
