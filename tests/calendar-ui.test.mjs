@@ -16,3 +16,19 @@ test('privacy badge distinguishes anonymous format, explicit titles and no recei
  assert.match(label([{id:'fixture-1',tool:'Codex',title:'Codex セッション fixture-'}]),/匿名タイトル形式/);
  assert.match(label([{id:'fixture-1',tool:'Codex',title:'Fixture task'}]),/タイトルを含む/);
 });
+test('overlapping layouts identify records by the source tool and id contract',()=>{
+ const layout=runInNewContext(definition('layoutSessionItems')+';layoutSessionItems(items)',{
+  Date,
+  items:[
+   {id:'shared',tool:'Codex',start:'2026-10-04T01:00:00Z',source:'codex-cli'},
+   {id:'shared',tool:'Claude',start:'2026-10-04T01:00:00Z',source:'claude-code'},
+   {id:'codex-regular',tool:'Codex',start:'2026-10-04T01:00:00Z',source:'codex-cli'},
+   {id:'shared',tool:'ChatGPT',start:'2026-10-04T01:00:00Z',source:'dot-task'},
+  ]
+ });
+ assert.equal(layout.laneCount,4);
+ assert.equal(layout.layouts.get('Codex:shared'),0);
+ assert.equal(layout.layouts.get('Claude:shared'),1);
+ assert.equal(layout.layouts.get('Codex:codex-regular'),2);
+ assert.equal(layout.layouts.get('ChatGPT:shared'),3);
+});
