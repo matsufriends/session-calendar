@@ -27,9 +27,13 @@ enum Spacing {
     @Published var lastCount: Int = 0
     @Published var errorMessage: String?
     private var task: Task<Void, Never>?
+    private var initialReadTask: Task<Void, Never>?
+    private var periodicTask: Task<Void, Never>?
+    private var refreshTask: Task<Void, Never>?
     private var dotSnapshotTask: Task<Void, Never>?
     private var digest: Data?
     private var snapshot = Snapshot(sessions: [])
+    private var collectionGeneration: UInt64 = 0
     private let calendar = LocalCalendar()
     private let noRedirect = NoRedirect()
     private lazy var session = URLSession(configuration: .ephemeral, delegate: noRedirect, delegateQueue: nil)
@@ -54,14 +58,15 @@ enum Spacing {
         if let data = defaults.data(forKey: "dotTaskSnapshot"), let imported = try? JSONDecoder().decode(DotTaskSnapshot.self, from: data) { dotTaskSnapshot = imported }
         lastSync = defaults.object(forKey: "lastSync") as? Date; lastCount = defaults.integer(forKey: "lastCount")
         if !startBackgroundTasks { return }
-        Task {
-            await collect()
+        let initialGeneration = beginCollection()
+        initialReadTask = Task {
+            guard await collect(generation: initialGeneration) else { return }
             if enabled {
                 if let key=keyProvider() { residentKey=key; syncNow() }
                 else { enabled=false; defaults.set(false,forKey:"syncEnabled"); status="鍵を確認して同期を開始してください" }
             }
         }
-        Task { while !Task.isCancelled { try? await Task.sleep(for: .seconds(300)); if enabled { syncNow() } } }
+        periodicTask = Task { while !Task.isCancelled { try? await Task.sleep(for: .seconds(300)); if enabled { syncNow() } } }
     }
     static func syncURL(_ value: String) -> URL? {
         guard let url = URL(string: value), url.scheme == "https", let host = url.host, !host.isEmpty, url.user == nil, url.password == nil, url.path == "/api/sync", url.query == nil, url.fragment == nil else { return nil }
@@ -73,10 +78,15 @@ enum Spacing {
         let formatter = DateFormatter(); formatter.locale = Locale(identifier: "ja_JP"); formatter.timeZone = TimeZone(identifier: "Asia/Tokyo"); formatter.dateFormat = "yyyy/MM/dd HH:mm:ss"
         return formatter.string(from: lastSync)
     }
-    @discardableResult private func collect() async -> Bool {
+    private func beginCollection() -> UInt64 {
+        collectionGeneration &+= 1
+        return collectionGeneration
+    }
+    @discardableResult private func collect(generation: UInt64) async -> Bool {
         let collector = collectMetadata
         let imported = dotTaskSnapshot
         let result = await Task.detached(priority: .utility) { collector(imported) }.value
+        guard generation == collectionGeneration else { return false }
         return apply(result)
     }
     @discardableResult private func apply(_ result: Collection) -> Bool {
@@ -89,7 +99,13 @@ enum Spacing {
         status = enabled ? "同期待機中" : "送信は一時停止中"
         return true
     }
-    func refresh() { Task { _ = await collect() } }
+    func refresh() {
+        guard !busy else { return }
+        let generation = beginCollection()
+        refreshTask = Task { _ = await collect(generation: generation) }
+    }
+    func waitForRefreshForTesting() async { await refreshTask?.value }
+    func waitForInitialReadForTesting() async { await initialReadTask?.value }
     func importDotSnapshot(_ result: Result<[URL], Error>) {
         guard !busy else { return }
         guard case .success(let urls) = result, let url = urls.first else { return }
@@ -100,10 +116,12 @@ enum Spacing {
             guard (values.fileSize ?? 0) <= 2 * 1024 * 1024 else { throw DotTaskSnapshot.ImportError.tooLarge }
             let imported = try DotTaskSnapshot.decode(Data(contentsOf: url))
             let encoded = try JSONEncoder().encode(imported)
+            let generation = beginCollection()
             busy = true; status = "snapshotのID衝突を確認中"
             let collector = collectMetadata
             dotSnapshotTask = Task {
                 let validation = await Task.detached(priority: .utility) { collector(imported) }.value
+                guard generation == collectionGeneration else { busy = false; return }
                 guard validation.failures == 0 else {
                     busy = false
                     status = "読み込み失敗"
@@ -122,10 +140,12 @@ enum Spacing {
     }
     func clearDotSnapshot() {
         guard !busy else { return }
+        let generation = beginCollection()
         busy = true
         let collector = collectMetadata
         dotSnapshotTask = Task {
             let refreshed = await Task.detached(priority: .utility) { collector(nil) }.value
+            guard generation == collectionGeneration else { busy = false; return }
             defaults.removeObject(forKey: "dotTaskSnapshot")
             dotTaskSnapshot = nil; digest = nil
             _ = apply(refreshed)
@@ -134,10 +154,11 @@ enum Spacing {
         }
     }
     func waitForDotSnapshotForTesting() async { await dotSnapshotTask?.value }
-    func pause() { enabled = false; defaults.set(false, forKey: "syncEnabled"); task?.cancel(); status = "送信は一時停止中" }
+    func pause() { _ = beginCollection(); enabled = false; defaults.set(false, forKey: "syncEnabled"); task?.cancel(); status = "送信は一時停止中" }
     func enable() {
         guard let url=Self.syncURL(endpoint) else { errorMessage="同期先URLが未設定です";showSettings=true;return }
         guard !busy else { return }
+        let generation = beginCollection()
         busy=true;errorMessage=nil;status="Keychainの確認を待っています"
         task=Task {
             defer { busy=false }
@@ -155,11 +176,11 @@ enum Spacing {
                 try Task.checkCancellation()
                 fputs("resident: empty signature handshake verified; key retained in process\n",stderr)
                 residentKey=key;digest=nil;enabled=true;defaults.set(true,forKey:"syncEnabled")
-                await transmit()
+                await transmit(generation: generation)
             } catch { enabled=false;defaults.set(false,forKey:"syncEnabled");status="接続確認に失敗しました";errorMessage="空データの認証確認が完了していません" }
         }
     }
-    func shutdown() { task?.cancel(); residentKey=nil; enabled=false }
+    func shutdown() { task?.cancel(); periodicTask?.cancel(); residentKey=nil; enabled=false }
     func beginSettings() { pause(); draftEndpoint = endpoint; showSettings = true }
     func saveConnection() {
         guard Self.syncURL(draftEndpoint) != nil else { errorMessage = "HTTPSの /api/sync URLを指定してください"; return }
@@ -169,14 +190,15 @@ enum Spacing {
     func titlesChanged() { defaults.set(includeTitles, forKey: "includeTitles"); digest = nil; pause() }
     func syncNow() {
         guard enabled, !busy else { return }
+        let generation = beginCollection()
         busy = true
-        task = Task { await transmit() }
+        task = Task { await transmit(generation: generation) }
     }
     func waitForSyncForTesting() async { await task?.value }
-    private func transmit() async {
+    private func transmit(generation: UInt64) async {
         busy = true; errorMessage = nil
         defer { busy = false }
-        guard await collect(), enabled, !Task.isCancelled else { return }
+        guard await collect(generation: generation), generation == collectionGeneration, enabled, !Task.isCancelled else { return }
         guard let url = Self.syncURL(endpoint), let key = residentKey else { errorMessage = "同期先・キーチェーンの署名鍵を確認してください"; status = "接続設定が必要"; return }
         do {
             let prepared = Metadata.prepared(snapshot, includeTitles: includeTitles)
@@ -190,6 +212,7 @@ enum Spacing {
             request.setValue("application/json", forHTTPHeaderField: "Content-Type"); try Credential.sign(&request, body: body, key: key)
             let (data, response) = try await (transport != nil ? transport!(request) : session.data(for: request))
             try Task.checkCancellation()
+            guard generation == collectionGeneration else { return }
             guard let http = response as? HTTPURLResponse, http.statusCode == 200, let json = try JSONSerialization.jsonObject(with: data) as? [String: Any], json["ok"] as? Bool == true, json["count"] as? Int == prepared.sessions.count else { errorMessage = "サーバーが送信を受け付けませんでした"; status = "送信失敗"; return }
             digest = nextDigest; lastSync = Date(); lastCount = prepared.sessions.count
             defaults.set(lastSync, forKey: "lastSync"); defaults.set(lastCount, forKey: "lastCount")
