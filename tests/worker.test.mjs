@@ -1,12 +1,24 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import worker,{SyncStore,validateSnapshot,writerAuthorized,viewerAuthorized} from '../cloud/worker.mjs';
+import {readFile} from 'node:fs/promises';
+const titleFixtures=JSON.parse(await readFile(new URL('../native/Tests/SessionCalendarTests/Fixtures/title-normalization.json',import.meta.url),'utf8'));
+function fixtureString(value) { return typeof value==='string'?value:value.repeat.repeat(value.count)+(value.suffix||''); }
 const empty={sessions:[],timezone:'Asia/Tokyo'};
 const record={id:'test-session',tool:'Claude',start:'2026-10-03T01:00:00Z',last_activity:null,end:null,project:'Example',title:'Example session'};
 const req=(path,options={})=>new Request('https://example.test'+path,options);
 test('snapshot allowlist rejects conversation, paths, invalid times, duplicates',()=>{
  assert.ok(validateSnapshot(empty));assert.ok(validateSnapshot({...empty,sessions:[record]}));
  for(const bad of [{...empty,body:'private'}, {...empty,sessions:[{...record,body:'private'}]}, {...empty,sessions:[{...record,project:'/Users/person/repo'}]}, {...empty,sessions:[{...record,start:'invalid'}]}, {...empty,sessions:[{...record,end:'2026-10-03T02:00:00Z'}]}, {...empty,sessions:[record,record]}]) assert.equal(validateSnapshot(bad),false);
+});
+test('shared title fixtures satisfy the Worker snapshot schema',()=>{
+ for(const fixture of titleFixtures) {
+  const title=fixtureString(fixture.expected);
+  assert.ok(title.length>0&&title.length<=300&&!/[\u0000-\u001f]/.test(title),fixture.name);
+  assert.ok(validateSnapshot({...empty,sessions:[{...record,title}]}),fixture.name);
+ }
+ assert.equal(validateSnapshot({...empty,sessions:[{...record,title:'😀'.repeat(151)}]}),false);
+ assert.equal(validateSnapshot({...empty,sessions:[{...record,title:'line\nbreak'}]}),false);
 });
 test('viewer fails closed on missing configuration, forged token, invalid team domain',async()=>{
  assert.equal(await viewerAuthorized(req('/'),{}),false);

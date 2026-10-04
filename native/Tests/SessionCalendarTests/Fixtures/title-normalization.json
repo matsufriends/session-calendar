@@ -1,0 +1,9 @@
+[
+  {"name":"emoji scalar boundary","input":{"repeat":"😀","count":151},"expected":{"repeat":"😀","count":150}},
+  {"name":"combining mark is preserved away from the boundary","input":"Café","expected":"Café"},
+  {"name":"newlines and C0 controls become spaces","input":"first\nsecond\u0000third\tend","expected":"first second third end"},
+  {"name":"exact UTF-16 limit","input":{"repeat":"a","count":300},"expected":{"repeat":"a","count":300}},
+  {"name":"one unit over limit","input":{"repeat":"a","count":301},"expected":{"repeat":"a","count":300}},
+  {"name":"combining cluster cannot be split at the limit","input":{"repeat":"a","count":299,"suffix":"éz"},"expected":{"repeat":"a","count":299}},
+  {"name":"empty title has a valid fallback","input":"","expected":"無題"}
+]
