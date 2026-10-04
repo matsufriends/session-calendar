@@ -9,3 +9,17 @@ final class CodexCloudTests: XCTestCase {
         XCTAssertNil(CodexCloud.record(["id": "c", "createdAt": 1.0, "threadSource": "dreaming", "name": "memory"]))
     }
 }
+final class CalendarPushTests: XCTestCase {
+    func testTargetRequiresHTTPSAndToken() throws {
+        let home = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: home) }
+        XCTAssertNil(CalendarPush.target(home: home))
+        let dir = home.appendingPathComponent(".config/session-calendar")
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let file = dir.appendingPathComponent("push.json")
+        try Data(#"{"url":"http://example.test/api/sessions/push","token":"t"}"#.utf8).write(to: file)
+        XCTAssertNil(CalendarPush.target(home: home))
+        try Data(#"{"url":"https://example.test/api/sessions/push","token":"t"}"#.utf8).write(to: file)
+        XCTAssertEqual(CalendarPush.target(home: home)?.url.host, "example.test")
+    }
+}

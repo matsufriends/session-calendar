@@ -22,13 +22,16 @@ enum Spacing {
     private let calendar = LocalCalendar()
     private var refreshTask: Task<Void, Never>?
     private var periodicTask: Task<Void, Never>?
+    private var pushedDigest: Data?
+    private let pushTarget: () -> CalendarPush.Target?
     init(startBackgroundTasks: Bool = true,
          collectMetadata: @escaping () -> Collection = { Metadata.collect() },
          fetchCloud: @escaping () async -> [SessionRecord]? = { await withTimeout(seconds: 30) { await CodexCloud.threads() } },
+         pushTarget: @escaping () -> CalendarPush.Target? = { CalendarPush.target() },
          loginStatusProvider: @escaping () -> SMAppService.Status = { SMAppService.mainApp.status },
          loginRegister: @escaping () throws -> Void = { try SMAppService.mainApp.register() },
          openLoginSettings: @escaping () -> Void = { SMAppService.openSystemSettingsLoginItems() }) {
-        self.collectMetadata = collectMetadata; self.fetchCloud = fetchCloud; self.loginStatusProvider = loginStatusProvider
+        self.collectMetadata = collectMetadata; self.fetchCloud = fetchCloud; self.pushTarget = pushTarget; self.loginStatusProvider = loginStatusProvider
         self.loginRegister = loginRegister; self.openLoginSettings = openLoginSettings
         loginStatus = loginStatusProvider()
         guard startBackgroundTasks else { return }
@@ -53,6 +56,11 @@ enum Spacing {
             codexCount = sessions.filter { $0.tool == "Codex" }.count
             claudeCount = sessions.filter { $0.tool == "Claude" }.count
             errorMessage = result.failures > 0 ? "一部の履歴を読み取れませんでした" : cloud == nil ? "Codexクラウドのスレッドを取得できませんでした" : nil
+            // Upload only when the merged list changed, so the 5-minute refresh stays quiet.
+            if let target = pushTarget(), let body = CalendarPush.body(sessions), CalendarPush.digest(body) != pushedDigest {
+                if await CalendarPush.send(body, to: target) { pushedDigest = CalendarPush.digest(body) }
+                else if errorMessage == nil { errorMessage = "カレンダーの送信に失敗しました" }
+            }
             status = "Claude \(claudeCount)件・Codex \(codexCount)件"
         }
     }

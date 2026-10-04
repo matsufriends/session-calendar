@@ -10,6 +10,10 @@ brew install --cask tsukumistudio/tap/session-calendar
 
 起動中は http://127.0.0.1:18765 でカレンダーを見られます。メニューバーの「カレンダーを開く」からも開けます。履歴は 5 分ごとに読み直します。更新はダッシュボード下段の「更新を確認」から行います（内部で `brew upgrade --cask` を実行します）。
 
+## 別サイトで見る（任意）
+
+`~/.config/session-calendar/push.json` に `{"url": "https://<host>/api/sessions/push", "token": "<送信用トークン>"}` を置くと、読み込みのたびに（変化があったときだけ）その URL へ履歴を `PUT` します。受け側は `index.html` を配信し、`GET /api/sessions` で同じ形式の JSON を返せば表示できます。
+
 ## 読み取るデータ
 
 - `~/.codex/sessions/**/*.jsonl` の先頭 session_meta と `~/.codex/session_index.jsonl`
