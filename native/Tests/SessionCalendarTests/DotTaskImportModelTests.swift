@@ -48,10 +48,16 @@ private final class SyncTransportLedger: @unchecked Sendable {
     private let lock = NSLock()
     private var nonces = Set<String>()
     private var acceptedCounts = [Int]()
+    private var successfulChecks = 0
 
     var lastAcceptedCount: Int? {
         lock.lock(); defer { lock.unlock() }
         return acceptedCounts.last
+    }
+
+    var checkCount: Int {
+        lock.lock(); defer { lock.unlock() }
+        return successfulChecks
     }
 
     func respond(_ request: URLRequest) throws -> (Data, URLResponse) {
@@ -66,6 +72,11 @@ private final class SyncTransportLedger: @unchecked Sendable {
         lock.unlock()
         if !inserted { return (Data(), HTTPURLResponse(url: url, statusCode: 409, httpVersion: nil, headerFields: nil)!) }
         let payload = try XCTUnwrap(try JSONSerialization.jsonObject(with: XCTUnwrap(request.httpBody)) as? [String: Any])
+        if url.path.hasSuffix("/check") {
+            guard payload["check"] as? Bool == true else { return (Data(), HTTPURLResponse(url: url, statusCode: 400, httpVersion: nil, headerFields: nil)!) }
+            lock.lock(); successfulChecks += 1; lock.unlock()
+            return (Data("{\"ok\":true,\"check\":true}".utf8), HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: nil)!)
+        }
         let count = try XCTUnwrap(payload["sessions"] as? [[String: Any]]).count
         lock.lock(); acceptedCounts.append(count); lock.unlock()
         return (Data("{\"ok\":true,\"count\":\(count)}".utf8), HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: nil)!)
@@ -236,6 +247,7 @@ private final class SyncTransportLedger: @unchecked Sendable {
         model.enable()
         await model.waitForSyncForTesting()
         XCTAssertTrue(model.enabled)
+        XCTAssertEqual(ledger.checkCount, 1, "sync enable must complete the signed non-mutating handshake")
 
         gate.arm()
         model.refresh()

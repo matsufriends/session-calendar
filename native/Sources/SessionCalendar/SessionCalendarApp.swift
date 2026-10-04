@@ -169,15 +169,15 @@ enum Spacing {
             else { key=await Task.detached { authorizer() }.value }
             guard let key,!Task.isCancelled else { status="鍵の利用を許可できませんでした";return }
             do {
-                status="空データで接続を確認中"
+                status="snapshotを変更せず接続を確認中"
                 try await SyncHandshake.verify(url:url,key:key,transport:{ request in
                     try await (self.transport != nil ? self.transport!(request) : self.session.data(for:request))
                 })
                 try Task.checkCancellation()
-                fputs("resident: empty signature handshake verified; key retained in process\n",stderr)
+                fputs("resident: non-mutating signed handshake verified; key retained in process\n",stderr)
                 residentKey=key;digest=nil;enabled=true;defaults.set(true,forKey:"syncEnabled")
                 await transmit(generation: generation)
-            } catch { enabled=false;defaults.set(false,forKey:"syncEnabled");status="接続確認に失敗しました";errorMessage="空データの認証確認が完了していません" }
+            } catch { enabled=false;defaults.set(false,forKey:"syncEnabled");status="接続確認に失敗しました";errorMessage="署名付き接続確認が完了していません" }
         }
     }
     func shutdown() { task?.cancel(); periodicTask?.cancel(); residentKey=nil; enabled=false }

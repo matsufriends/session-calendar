@@ -87,7 +87,7 @@ test('fixture snapshot traverses Native payload, Worker validation/storage, and 
   assert.equal(ui.anonymousTitle(task),true);
   const makeNode=tag=>({tag,children:[],append(...items){this.children.push(...items)},replaceChildren(...items){this.children=items}});
   const panel=makeNode('aside'),document={createElement:makeNode};
-  const detailCode=definition('dt')+'\n'+definition('statusLabel')+'\n'+definition('node')+'\n'+definition('detail')+';detail(task)';
+  const detailCode=definition('instant')+'\n'+definition('dt')+'\n'+definition('statusLabel')+'\n'+definition('node')+'\n'+definition('detail')+';detail(task)';
   runInNewContext(detailCode,{task,document,$:()=>panel});
   const visibleText=node=>[node.textContent||'',...(node.children||[]).map(visibleText)].join(' ');
   assert.match(visibleText(panel),/タスク登録日時/);

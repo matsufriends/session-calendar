@@ -1,17 +1,31 @@
 #!/usr/bin/env python3
 """Local, read-only session metadata calendar. Standard library only."""
 import json, argparse, threading, time, re
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from datetime import datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 ROOT=Path(__file__).parent
 cache={'at':0,'data':None}
 lock=threading.Lock()
+def parse_instant(value):
+    """Parse an ISO-8601 timestamp only when it identifies an absolute instant."""
+    if not isinstance(value,str) or not value: return None
+    try:
+        match=re.fullmatch(r'(\d{4}-\d{2}-\d{2})T(\d{2}):(\d{2})(?::(\d{2})(\.(\d+))?)?(Z|[+-]\d{2}:?\d{2})',value,re.I)
+        if not match: return None
+        date,hour,minute,second,fraction,frac_digits,zone=match.groups()
+        hour=int(hour); minute=int(minute); second=int(second or 0)
+        if hour==24:
+            if minute or second or (frac_digits and int(frac_digits) != 0): return None
+            date=(datetime.fromisoformat(date)+timedelta(days=1)).date().isoformat()
+            value=f'{date}T00:{match.group(3)}:{second:02d}{fraction or ""}{zone}'
+        elif hour>23: return None
+        if minute>59 or second>59: return None
+        parsed=datetime.fromisoformat(value[:-1]+'+00:00' if value.endswith(('Z','z')) else value)
+        return parsed if parsed.tzinfo is not None and parsed.utcoffset() is not None else None
+    except (ValueError,OverflowError): return None
 def valid_timestamp(value):
-    return isinstance(value,str) and len(value)<=40 and re.fullmatch(r'\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})',value) is not None and _timestamp_parses(value)
-def _timestamp_parses(value):
-    try: datetime.fromisoformat(value.replace('Z','+00:00')); return True
-    except ValueError: return False
+    return isinstance(value,str) and len(value)<=40 and parse_instant(value) is not None
 def _safe_text(value, maximum):
     return isinstance(value,str) and 0<len(value)<=maximum and not any(ord(c)<32 or ord(c)==127 for c in value)
 def adapt_dot_snapshot(data, occupied_ids=()):
@@ -35,19 +49,19 @@ def adapt_dot_snapshot(data, occupied_ids=()):
         project=task.get('project')
         if project is None: project='不明'
         if not _safe_text(project,500): raise ValueError('invalid project')
-        # A supplied project may be a path-like value; only its display name is retained.
         project=project.replace('\\','/').rstrip('/').rsplit('/',1)[-1][:200] or '不明'
-        seen.add(task_id)
         result.append({'id':task_id,'source':'dot-task','tool':'ChatGPT','task_registered_at':attached,
           'latest_turn_status':latest['status'],'snapshot_observed_at':observed,'project':project,'title':title})
+        seen.add(task_id)
     return result
 def load_dot_snapshot(path, occupied_ids=()):
     """Read only the explicit local file path supplied at server startup; no HTTP path access."""
     raw=Path(path).read_text(encoding='utf-8')
     return adapt_dot_snapshot(json.loads(raw),occupied_ids)
-def collect(dot_snapshot_path=None):
+def collect(home=None,dot_snapshot_path=None):
+    home=Path.home() if home is None else Path(home)
     sessions=[]; errors=[]; names={}
-    index=Path.home()/'.codex/session_index.jsonl'
+    index=home/'.codex/session_index.jsonl'
     try:
         if index.exists():
             for line in index.open():
@@ -55,7 +69,7 @@ def collect(dot_snapshot_path=None):
                     r=json.loads(line); names[r.get('id')]=r
                 except ValueError: pass
     except OSError: errors.append('Codexのタイトル索引を読み取れません')
-    for tool,base in [('Codex',Path.home()/'.codex/sessions'),('Claude',Path.home()/'.claude/projects')]:
+    for tool,base in [('Codex',home/'.codex/sessions'),('Claude',home/'.claude/projects')]:
         try:
             for file in base.glob('**/*.jsonl'):
                 if 'subagents' in file.parts: continue
@@ -66,20 +80,27 @@ def collect(dot_snapshot_path=None):
                             r=json.loads(next(stream)); p=r.get('payload',{})
                             if r.get('type')!='session_meta': continue
                             sid=p.get('id') or p.get('session_id') or sid
-                            start=p.get('timestamp') or r.get('timestamp'); project=p.get('cwd','')
-                            n=names.get(sid,{}); title=n.get('thread_name',''); last=n.get('updated_at')
+                            raw_start=p.get('timestamp') or r.get('timestamp'); parsed_start=parse_instant(raw_start)
+                            start=(parsed_start,raw_start) if parsed_start else None
+                            if raw_start and not parsed_start: errors.append('不正な日時の履歴を除外しました')
+                            project=p.get('cwd','')
+                            n=names.get(sid,{}); title=n.get('thread_name','')
+                            raw_last=n.get('updated_at'); parsed_last=parse_instant(raw_last)
+                            last=(parsed_last,raw_last) if parsed_last else None
                         else:
                             for line in stream:
                                 try:r=json.loads(line)
                                 except ValueError:continue
                                 if r.get('isSidechain'):continue
                                 sid=r.get('sessionId',sid); project=r.get('cwd') or project
-                                ts=r.get('timestamp')
-                                if ts and r.get('type') in ('user','assistant'):
-                                    start=min(start,ts) if start else ts; last=max(last,ts) if last else ts
+                                ts=r.get('timestamp'); instant=parse_instant(ts)
+                                if ts and r.get('type') in ('user','assistant') and not instant: errors.append('不正な日時の履歴を除外しました')
+                                if instant and r.get('type') in ('user','assistant'):
+                                    if not start or instant<start[0]: start=(instant,ts)
+                                    if not last or instant>last[0]: last=(instant,ts)
                                 if r.get('type')=='custom-title':title=r.get('customTitle','')
                     if start:
-                        sessions.append({'id':sid,'tool':tool,'start':start,'last_activity':last,'end':None,'project':Path(project).name if project else '不明','title':title or f'{tool} セッション {sid[:8]}'})
+                        sessions.append({'id':sid,'tool':tool,'start':start[1],'last_activity':last[1] if last else None,'end':None,'project':Path(project).name if project else '不明','title':title or f'{tool} セッション {sid[:8]}'})
                 except (OSError,ValueError,StopIteration):errors.append(f'{tool}の一部の履歴を読み取れません')
         except OSError:errors.append(f'{tool}の履歴フォルダにアクセスできません')
     unique={(s['tool'],s['id']):s for s in sessions}
@@ -88,7 +109,8 @@ def collect(dot_snapshot_path=None):
         try: dot_tasks=load_dot_snapshot(dot_snapshot_path,{s['id'] for s in unique.values()})
         except (OSError,UnicodeError,ValueError,json.JSONDecodeError): errors.append('dot-task snapshotを読み取れません（JSON・必須項目・ID重複を確認してください）')
     rows=list(unique.values())+dot_tasks
-    return {'sessions':sorted(rows,key=lambda x:x.get('start') or x.get('task_registered_at',''),reverse=True),'warnings':list(set(errors)),'timezone':'Asia/Tokyo'}
+    floor=datetime.min.replace(tzinfo=timezone.utc)
+    return {'sessions':sorted(rows,key=lambda x:parse_instant(x.get('start') or x.get('task_registered_at')) or floor,reverse=True),'warnings':list(set(errors)),'timezone':'Asia/Tokyo'}
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         if self.headers.get('Host','') not in (f'127.0.0.1:{self.server.server_port}',f'localhost:{self.server.server_port}'):
@@ -108,5 +130,6 @@ if __name__=='__main__':
     p=argparse.ArgumentParser();p.add_argument('--port',type=int,default=8765);p.add_argument('--dot-snapshot',type=Path,help='公式dot cloud task metadata JSONのローカルファイルを明示指定（HTTPからは読めません）');args=p.parse_args()
     print(f'http://127.0.0.1:{args.port}',flush=True)
     original_collect=collect
-    collect=lambda:original_collect(args.dot_snapshot)
+    def configured_collect(home=None): return original_collect(home,args.dot_snapshot)
+    collect=configured_collect
     ThreadingHTTPServer(('127.0.0.1',args.port),Handler).serve_forever()
