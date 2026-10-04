@@ -12,15 +12,8 @@ test('snapshot allowlist rejects conversation, paths, invalid times, duplicates'
  assert.ok(validateSnapshot(empty));assert.ok(validateSnapshot({...empty,sessions:[record]}));
  for(const bad of [{...empty,body:'private'}, {...empty,sessions:[{...record,body:'private'}]}, {...empty,sessions:[{...record,project:'/Users/person/repo'}]}, {...empty,sessions:[{...record,start:'invalid'}]}, {...empty,sessions:[{...record,end:'2026-10-03T02:00:00Z'}]}, {...empty,sessions:[record,record]}]) assert.equal(validateSnapshot(bad),false);
 });
-test('dot-task snapshot schema preserves source and rejects unknown fields or CLI ID collisions',()=>{
- assert.ok(validateSnapshot({...empty,sessions:[dotTask]}));
- assert.ok(validateSnapshot({...empty,sessions:[{...dotTask,latest_turn_status:'inProgress'}]}));
- assert.equal(validateSnapshot({...empty,sessions:[{...dotTask,latest_turn_status:'future_state'}]}),false);
- assert.ok(validateSnapshot({...empty,sessions:[{...dotTask,snapshot_observed_at:null}]}));
- assert.equal(validateSnapshot({...empty,sessions:[{...dotTask,conversation:'fixture secret'}]}),false);
- assert.equal(validateSnapshot({...empty,sessions:[{...dotTask,snapshot_observed_at:'invalid'}]}),false);
- assert.equal(validateSnapshot({...empty,sessions:[dotTask,{...record,id:dotTask.id}]}),false);
- assert.equal(validateSnapshot({...empty,sessions:[dotTask,{...dotTask}]}),false);
+test('dot-task rows are no longer accepted',()=>{
+ assert.equal(validateSnapshot({...empty,sessions:[dotTask]}),false);
 });
 test('shared title fixtures satisfy the Worker snapshot schema',()=>{
  for(const fixture of titleFixtures) {

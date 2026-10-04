@@ -7,7 +7,6 @@ from pathlib import Path
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from codex_source import collect_codex, merge_codex, SourceError, SCOPE
 ROOT=Path(__file__).parent
-DOT_TASK_STATUSES={'queued','running','in_progress','cancelling','cancelled','canceled','completed','failed','incomplete','requires_action','expired','waiting','inProgress'}
 cache={'at':0,'data':None}
 lock=threading.Lock()
 def parse_instant(value):
@@ -32,41 +31,7 @@ def title_value(value):
     if not isinstance(value,str) or not value.strip(): return ''
     try: return normalized_title(value)
     except UnicodeError: return ''  # Native JSONLines rejects invalid Unicode strings too.
-def valid_timestamp(value):
-    return isinstance(value,str) and len(value)<=40 and parse_instant(value) is not None
-def _safe_text(value, maximum):
-    return isinstance(value,str) and 0<len(value)<=maximum and not any(ord(c)<32 or ord(c)==127 for c in value)
-def adapt_dot_snapshot(data, occupied_ids=()):
-    """Keep only official, user-visible task metadata from an explicitly imported snapshot."""
-    if not isinstance(data,dict) or not isinstance(data.get('tasks'),list) or len(data['tasks'])>20000:
-        raise ValueError('snapshot must contain a tasks array')
-    observed=data.get('snapshot_observed_at')
-    if observed is not None and not valid_timestamp(observed): raise ValueError('invalid snapshot_observed_at')
-    occupied=set(occupied_ids); seen=set(); result=[]
-    for task in data['tasks']:
-        if not isinstance(task,dict): raise ValueError('invalid task record')
-        task_id=task.get('id'); attached=task.get('attachedAt'); latest=task.get('latestTurn')
-        if not _safe_text(task_id,128) or not re.fullmatch(r'[A-Za-z0-9._-]+',task_id): raise ValueError('invalid task id')
-        if task_id in seen: raise ValueError('duplicate task id')
-        if task_id in occupied: raise ValueError('task id collides with an existing CLI session')
-        if not valid_timestamp(attached): raise ValueError('invalid attachedAt')
-        if not isinstance(latest,dict) or not _safe_text(latest.get('status'),40) or latest['status'] not in DOT_TASK_STATUSES: raise ValueError('missing or invalid latestTurn.status')
-        title=task.get('title')
-        if title is None: title=f'ChatGPT タスク {task_id[-8:]}'
-        if not _safe_text(title,300): raise ValueError('invalid title')
-        project=task.get('project')
-        if project is None: project='不明'
-        if not _safe_text(project,500): raise ValueError('invalid project')
-        project=project.replace('\\','/').rstrip('/').rsplit('/',1)[-1][:200] or '不明'
-        result.append({'id':task_id,'source':'dot-task','tool':'ChatGPT','task_registered_at':attached,
-          'latest_turn_status':latest['status'],'snapshot_observed_at':observed,'project':project,'title':title})
-        seen.add(task_id)
-    return result
-def load_dot_snapshot(path, occupied_ids=()):
-    """Read only the explicit local file path supplied at server startup; no HTTP path access."""
-    raw=Path(path).read_text(encoding='utf-8')
-    return adapt_dot_snapshot(json.loads(raw),occupied_ids)
-def collect(home=None,dot_snapshot_path=None,codex_reader=None):
+def collect(home=None,codex_reader=None):
     fixture_home=home is not None
     home=Path.home() if home is None else Path(home)
     sessions=[]; errors=[]; names={}
@@ -124,13 +89,9 @@ def collect(home=None,dot_snapshot_path=None,codex_reader=None):
         errors.append(f'Codex app-server取得失敗（{error}）。JSONLにfallback')
         codex_scope='Codex: JSONL先頭metadataとタイトル索引のみ（archive対象外）'
     unique={(s['tool'],s['id']):s for s in sessions}
-    dot_tasks=[]
-    if dot_snapshot_path:
-        try: dot_tasks=load_dot_snapshot(dot_snapshot_path,{s['id'] for s in unique.values()})
-        except (OSError,UnicodeError,ValueError,json.JSONDecodeError): errors.append('dot-task snapshotを読み取れません（JSON・必須項目・ID重複を確認してください）')
-    rows=list(unique.values())+dot_tasks
+    rows=list(unique.values())
     floor=datetime.min.replace(tzinfo=timezone.utc)
-    return {'sessions':sorted(rows,key=lambda x:parse_instant(x.get('start') or x.get('task_registered_at')) or floor,reverse=True),'warnings':list(set(errors)),'timezone':'Asia/Tokyo','source_scope':codex_scope}
+    return {'sessions':sorted(rows,key=lambda x:parse_instant(x.get('start')) or floor,reverse=True),'warnings':list(set(errors)),'timezone':'Asia/Tokyo','source_scope':codex_scope}
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         if self.headers.get('Host','') not in (f'127.0.0.1:{self.server.server_port}',f'localhost:{self.server.server_port}'):
@@ -147,9 +108,6 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header('X-Content-Type-Options','nosniff');self.end_headers();self.wfile.write(body)
     def log_message(self,*args):pass
 if __name__=='__main__':
-    p=argparse.ArgumentParser();p.add_argument('--port',type=int,default=8765);p.add_argument('--dot-snapshot',type=Path,help='公式dot cloud task metadata JSONのローカルファイルを明示指定（HTTPからは読めません）');args=p.parse_args()
+    p=argparse.ArgumentParser();p.add_argument('--port',type=int,default=8765);args=p.parse_args()
     print(f'http://127.0.0.1:{args.port}',flush=True)
-    original_collect=collect
-    def configured_collect(home=None): return original_collect(home,args.dot_snapshot)
-    collect=configured_collect
     ThreadingHTTPServer(('127.0.0.1',args.port),Handler).serve_forever()

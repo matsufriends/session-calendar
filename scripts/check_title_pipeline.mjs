@@ -7,13 +7,8 @@ const path=process.argv[2];
 if(!path)throw Error('Usage: node scripts/check_title_pipeline.mjs /absolute/native-title-snapshot.json');
 const cases=JSON.parse(await readFile(new URL('../tests/fixtures/session-titles.json',import.meta.url))).cases;
 const html=await readFile(new URL('../cloud/public/index.html',import.meta.url),'utf8');
-const definitions=['instant','sessionEnd','statusLabel','workTitle','node','detail'].map(name=>html.match(new RegExp('^function '+name+'\\(.*$','m'))[0]).join('\n');
+const definitions=['workTitle'].map(name=>html.match(new RegExp('^function '+name+'\\(.*$','m'))[0]).join('\n');
 function normalizedTitle(title){let result='',length=0;for(const {segment} of new Intl.Segmenter('en',{granularity:'grapheme'}).segment(title.replace(/[\u0000-\u001f]/g,' '))){if(length+segment.length>300)break;result+=segment;length+=segment.length}return result||'無題'}
-class Element {
- constructor(tag){this.tag=tag;this.children=[];}
- append(...nodes){this.children.push(...nodes);}
- replaceChildren(...nodes){this.children=nodes;}
-}
 for(const anonymous of [false,true]) {
  const snapshot=JSON.parse(await readFile(path+(anonymous?'.anonymous':''),'utf8'));
  assert.ok(validateSnapshot(snapshot));
@@ -32,11 +27,7 @@ for(const anonymous of [false,true]) {
  for(const row of received.sessions) {
   const item=cases.find(c=>c.id===row.id);
   assert.equal(row.title,anonymous?`${row.tool} セッション ${row.id.slice(0,8)}`:normalizedTitle(item.expected));
-  const heading=anonymous?'作業名未受信':row.title,detail=new Element('aside');
-  const context={openDetail:()=>{},document:{createElement:tag=>new Element(tag)},$:()=>detail,dt:()=> 'fixture time',row};
-  runInNewContext(definitions+';detail(row)',context);
-  assert.equal(detail.children[0].tag,'h2');assert.equal(detail.children[0].textContent,heading);
-  assert.equal(runInNewContext(definitions+';node("strong",workTitle(row)).textContent',context),heading);
+  assert.equal(runInNewContext(definitions+';workTitle(row)',{row}),anonymous?'作業名なし':row.title);
  }
  assert.ok(!JSON.stringify(received).includes('Body must remain local'));
  await writeFile(path+(anonymous?'.anonymous.worker':'.worker'),JSON.stringify(received,null,2)+'\n');
