@@ -84,4 +84,23 @@ final class MetadataTests: XCTestCase {
         let result = Metadata.collect(home: root)
         XCTAssertEqual(result.snapshot.sessions.first?.start, metadata["expected_start"] as? String)
     }
+    func testUnnamedSessionsUsePromptAndAutomationIsSkipped() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let codex = root.appendingPathComponent(".codex/sessions"), claude = root.appendingPathComponent(".claude/projects/example")
+        try FileManager.default.createDirectory(at: codex, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: claude, withIntermediateDirectories: true)
+        func meta(_ id: String, _ source: String) -> String { "{\"type\":\"session_meta\",\"timestamp\":\"2026-10-03T01:00:00Z\",\"payload\":{\"id\":\"\(id)\",\"cwd\":\"/tmp/Example\",\"source\":\(source)}}\n" }
+        let user = { (text: String) in "{\"timestamp\":\"2026-10-03T01:00:01Z\",\"type\":\"response_item\",\"payload\":{\"type\":\"message\",\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"\(text)\"}]}}\n" }
+        try Data((meta("cli", "\"cli\"") + user("# AGENTS.md instructions") + user("<environment_context>") + user("画面を直して\\n詳細") + "{\"timestamp\":\"2026-10-03T02:30:00Z\",\"type\":\"event_msg\",\"payload\":{}}\n").utf8).write(to: codex.appendingPathComponent("cli.jsonl"))
+        try Data(meta("exec", "\"exec\"").utf8).write(to: codex.appendingPathComponent("exec.jsonl"))
+        try Data(meta("sub", "{\"subagent\":{}}").utf8).write(to: codex.appendingPathComponent("sub.jsonl"))
+        let claudeRows = "{\"type\":\"user\",\"sessionId\":\"claude\",\"timestamp\":\"2026-10-03T03:00:00Z\",\"message\":{\"content\":\"<command-name>/clear</command-name>\"}}\n{\"type\":\"user\",\"timestamp\":\"2026-10-03T03:01:00Z\",\"message\":{\"content\":[{\"type\":\"text\",\"text\":\"カレンダーを作って\"}]}}\n"
+        try Data(claudeRows.utf8).write(to: claude.appendingPathComponent("claude.jsonl"))
+        let rows = Dictionary(uniqueKeysWithValues: Metadata.collect(home: root).snapshot.sessions.map { ($0.id, $0) })
+        XCTAssertEqual(Set(rows.keys), ["cli", "claude"])
+        XCTAssertEqual(rows["cli"]?.title, "画面を直して")
+        XCTAssertEqual(rows["cli"]?.last_activity, "2026-10-03T02:30:00Z")
+        XCTAssertEqual(rows["claude"]?.title, "カレンダーを作って")
+    }
 }

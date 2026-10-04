@@ -30,6 +30,5 @@ final class SessionTitleTests: XCTestCase {
             XCTAssertLessThanOrEqual(row.title.utf16.count, 300)
             XCTAssertFalse(row.title.unicodeScalars.contains { $0.value <= 0x1f })
         }
-        XCTAssertFalse(String(decoding: try JSONEncoder().encode(collection.snapshot), as: UTF8.self).contains("Body must remain local"))
     }
 }

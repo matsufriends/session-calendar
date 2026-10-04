@@ -108,6 +108,24 @@ enum Metadata {
         if let date = fractionalFormatter.date(from: normalized) ?? ordinaryFormatter.date(from: normalized) { return (date, text) }
         return nil
     }
+    /// First line of a typed prompt; skips injected instructions and tags such as AGENTS.md or <environment_context>.
+    static func promptTitle(_ value: Any?) -> String? {
+        guard let text = (value as? String)?.trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty,
+              !text.hasPrefix("#"), !text.hasPrefix("<") else { return nil }
+        return String(text.prefix { $0 != "\n" }.prefix(80))
+    }
+    /// Timestamp of the last complete record, read from the file tail without scanning the whole log.
+    static func lastTimestamp(_ url: URL) -> (date: Date, text: String)? {
+        guard let handle = try? FileHandle(forReadingFrom: url) else { return nil }
+        defer { try? handle.close() }
+        guard let size = try? handle.seekToEnd() else { return nil }
+        try? handle.seek(toOffset: size > 65536 ? size - 65536 : 0)
+        guard let data = try? handle.readToEnd() else { return nil }
+        for line in data.split(separator: 10).reversed() {
+            if let r = (try? JSONSerialization.jsonObject(with: line)) as? [String: Any], let parsed = instant(r["timestamp"]) { return parsed }
+        }
+        return nil
+    }
     static func projectLabel(_ path: String) -> String {
         let name = path.replacingOccurrences(of: "\\", with: "/").split(separator: "/").last.map(String.init) ?? "不明"
         return String(name.prefix(200))
@@ -127,14 +145,22 @@ enum Metadata {
                 if file.pathComponents.contains("subagents") { continue }
                 do {
                     let lines = try JSONLines(file)
-                    var id = file.deletingPathExtension().lastPathComponent, start: (date: Date, text: String)?, last: (date: Date, text: String)?, project = "", title = "", aiTitle = "", summary = ""
+                    var id = file.deletingPathExtension().lastPathComponent, start: (date: Date, text: String)?, last: (date: Date, text: String)?, project = "", title = "", aiTitle = "", summary = "", prompt = ""
                     if tool == "Codex" {
                         guard let r = try lines.next(), r["type"] as? String == "session_meta", let p = r["payload"] as? [String: Any] else { continue }
+                        // Subagent threads and `codex exec` automation are not interactive work sessions.
+                        if p["source"] is [String: Any] || p["source"] as? String == "exec" { continue }
                         id = p["id"] as? String ?? p["session_id"] as? String ?? id
                         start = instant(p["timestamp"] as? String ?? r["timestamp"])
                         project = p["cwd"] as? String ?? ""
                         title = titleValue(names[id]?["thread_name"]) ?? ""
-                        last = instant(names[id]?["updated_at"])
+                        last = lastTimestamp(file) ?? instant(names[id]?["updated_at"])
+                        var scanned = 0
+                        while title.isEmpty, scanned < 500, let r = try autoreleasepool(invoking: { try lines.next() }) {
+                            scanned += 1
+                            guard r["type"] as? String == "response_item", let p = r["payload"] as? [String: Any], p["type"] as? String == "message", p["role"] as? String == "user", let content = p["content"] as? [[String: Any]] else { continue }
+                            title = content.lazy.compactMap { $0["type"] as? String == "input_text" ? promptTitle($0["text"]) : nil }.first ?? ""
+                        }
                     } else {
                         // Drain per-line Foundation objects; large histories otherwise hold gigabytes until the scan ends.
                         while try autoreleasepool(invoking: { () throws -> Bool in
@@ -148,11 +174,15 @@ enum Metadata {
                             if r["type"] as? String == "custom-title" { title = titleValue(r["customTitle"]) ?? title }
                             if r["type"] as? String == "ai-title" { aiTitle = titleValue(r["aiTitle"]) ?? aiTitle }
                             if r["type"] as? String == "summary" { summary = titleValue(r["summary"]) ?? summary }
+                            if prompt.isEmpty, r["type"] as? String == "user", let message = r["message"] as? [String: Any] {
+                                let content = message["content"]
+                                prompt = promptTitle(content) ?? (content as? [[String: Any]])?.lazy.compactMap { $0["type"] as? String == "text" ? promptTitle($0["text"]) : nil }.first ?? ""
+                            }
                             return true
                         }) {}
                     }
                     if let start {
-                        rows[tool + ":" + id] = SessionRecord(id: id, tool: tool, start: start.text, last_activity: last?.text, project: projectLabel(project), title: normalizedTitle([title, aiTitle, summary].first(where: { !$0.isEmpty }) ?? "作業名不明"))
+                        rows[tool + ":" + id] = SessionRecord(id: id, tool: tool, start: start.text, last_activity: last?.text, project: projectLabel(project), title: normalizedTitle([title, aiTitle, summary, prompt].first(where: { !$0.isEmpty }) ?? "作業名不明"))
                     }
                 } catch { failures += 1 }
             }
