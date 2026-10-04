@@ -4,15 +4,17 @@ Claude Code / Codex CLI のローカル履歴を、Asia/Tokyo の週カレンダ
 
 ## 起動
 
+確認済みのCPython 3.12を使う手順です。`python3.12` が利用できる環境で実行してください。
+
 ```sh
 cd session-calendar
-python3 -m venv .venv
+python3.12 -m venv .venv
 .venv/bin/python -m pip install -r requirements.txt
 .venv/bin/python app.py
 ```
 
 http://127.0.0.1:8765 を開きます。停止は起動したターミナルで Ctrl+C。別ポートは `.venv/bin/python app.py --port 8766`。次回以降は同じフォルダで `.venv/bin/python app.py` を実行します。
-Python 3.9 以降。題名をNativeと同じ書記素境界で切り詰めるため、固定版regexが必要です。恒久的な自動起動は登録していません。
+動作確認済みはCPython 3.9（Macのクリーンvenv）と3.12（CIのクリーンvenv）です。固定依存regex 2024.11.6にはCPython 3.9–3.13向けwheelがありますが、3.10・3.11・3.13でのアプリ動作は未検証です。3.14以降は依存のsourceビルドと動作を未検証のため、この起動手順の対象に含めません。恒久的な自動起動は登録していません。
 依存は専用venv内へ導入します。Homebrew Pythonのexternally-managed環境でも、システムPythonへのpipインストールは不要です。
 
 ## 機能

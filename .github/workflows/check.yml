@@ -18,9 +18,10 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - run: python3 -m pip install -r requirements.txt
+      - run: python3.12 -m venv .venv
+      - run: .venv/bin/python -m pip install -r requirements.txt
       - run: npm ci
-      - run: npm test
+      - run: PATH="$PWD/.venv/bin:$PATH" npm test
       - run: npm run build
   mac:
     runs-on: macos-14
@@ -29,7 +30,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - run: python3 -m pip install -r requirements.txt
+      - run: python3.12 -m venv .venv
+      - run: .venv/bin/python -m pip install -r requirements.txt
       - run: swift test --package-path native
         env:
           TITLE_FIXTURE_SNAPSHOT: ${{ runner.temp }}/native-title-snapshot.json
@@ -42,7 +44,7 @@ jobs:
       - run: node scripts/check_title_pipeline.mjs "$TITLE_FIXTURE_SNAPSHOT"
         env:
           TITLE_FIXTURE_SNAPSHOT: ${{ runner.temp }}/native-title-snapshot.json
-      - run: python3 scripts/check_title_parity.py "$TITLE_FIXTURE_SNAPSHOT"
+      - run: .venv/bin/python scripts/check_title_parity.py "$TITLE_FIXTURE_SNAPSHOT"
         env:
           TITLE_FIXTURE_SNAPSHOT: ${{ runner.temp }}/native-title-snapshot.json
       - uses: actions/upload-artifact@v4
