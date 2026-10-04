@@ -3,6 +3,7 @@
 import json, argparse, threading, time
 from pathlib import Path
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from codex_source import collect_codex, merge_codex, SourceError, SCOPE
 ROOT=Path(__file__).parent
 cache={'at':0,'data':None}
 lock=threading.Lock()
@@ -43,8 +44,14 @@ def collect():
                         sessions.append({'id':sid,'tool':tool,'start':start,'last_activity':last,'end':None,'project':Path(project).name if project else '不明','title':title or f'{tool} セッション {sid[:8]}'})
                 except (OSError,ValueError,StopIteration):errors.append(f'{tool}の一部の履歴を読み取れません')
         except OSError:errors.append(f'{tool}の履歴フォルダにアクセスできません')
+    try:
+        sessions=merge_codex(sessions,collect_codex())
+        codex_scope=SCOPE
+    except SourceError as error:
+        errors.append(f'Codex app-server取得失敗（{error}）。JSONLにfallback')
+        codex_scope='Codex: JSONL先頭metadataとタイトル索引のみ（archive対象外）'
     unique={(s['tool'],s['id']):s for s in sessions}
-    return {'sessions':sorted(unique.values(),key=lambda x:x['start'],reverse=True),'warnings':list(set(errors)),'timezone':'Asia/Tokyo'}
+    return {'sessions':sorted(unique.values(),key=lambda x:x['start'],reverse=True),'warnings':list(set(errors)),'timezone':'Asia/Tokyo','source_scope':codex_scope}
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         if self.headers.get('Host','') not in (f'127.0.0.1:{self.server.server_port}',f'localhost:{self.server.server_port}'):

@@ -21,13 +21,15 @@ Python 3.9 以降、追加依存なし。恒久的な自動起動は登録して
 
 ## データと安全性
 
-読取対象は `~/.codex/sessions/**/*.jsonl` の先頭 session_meta と `~/.codex/session_index.jsonl`、`~/.claude/projects/**/*.jsonl` です。Claude の subagents / isSidechain は除外します。既存ファイルには書き込みません。タイトルは明示タイトルだけを使い、ない場合はツール名と短いIDです。プロジェクトはcwdの最後の名前です。
+Python版は一時Codex app-serverのstate DB metadata（全source・archive含む）を追加し、取得scopeと失敗時のJSONL fallbackを画面に表示します。対応CLI・取得field・preview破棄・限界は [Codex adapter](docs/codex-source.md) を参照してください。native Mac版は従来collectorです。
 
-Claude ログはJSONをパースして日時・cwd・ID・明示タイトルだけ抽出します。会話本文・ツール出力は保存、検索、表示、API送信しません。Codexログは先頭行だけ読みます。CLIの保存形式に依存するため、今後の形式変更により読取調整が必要になる場合があります。アーカイブされたCodex履歴は対象外です。
+従来JSONLの読取対象は `~/.codex/sessions/**/*.jsonl` の先頭 session_meta と `~/.codex/session_index.jsonl`、`~/.claude/projects/**/*.jsonl` です。Claude の subagents / isSidechain は除外します。JSONL collectorは既存ファイルには書き込みません。app-serverは起動時に自身のstate runtimeを初期化するため、DB書込み権限が必要です。タイトルは明示タイトルだけを使い、ない場合はツール名と短いIDです。プロジェクトはcwdの最後の名前です。
 
-終了日時は不明として扱います。「最後の記録」はClaudeの最後のメッセージ日時、Codexのタイトル索引のupdated_atであり、終了を意味しません。カレンダーのカード高さと重なり回避の幅は表示上の配置で、実際の所要時間ではありません。
+Claude ログはJSONをパースして日時・cwd・ID・明示タイトルだけ抽出します。会話本文・ツール出力は保存、検索、表示、API送信しません。Codexログは先頭行だけ読みます。CLIの保存形式に依存するため、今後の形式変更により読取調整が必要になる場合があります。JSONL fallbackではアーカイブされたCodex履歴は対象外です。
 
-Pythonローカル版は外部通信・クラウド保存を行いません。HTTPは127.0.0.1のみ待受け、Host検査とCSPを適用します。認証情報を読みません。読み取れないファイルはスキップし警告します。フォルダがない場合はそのツールは0件です。
+終了日時は不明として扱います。「最後の記録」はClaudeの最後のメッセージ日時、Codexのstate DB updatedAtまたはfallbackのタイトル索引updated_atであり、終了を意味しません。カレンダーのカード高さと重なり回避の幅は表示上の配置で、実際の所要時間ではありません。
+
+Python calendarは履歴を外部へ送信・クラウド保存しません。一時起動する公式CLIの通常初期化はCLI設定に依存します。HTTPは127.0.0.1のみ待受け、Host検査とCSPを適用します。adapterは認証情報を要求・抽出しません（公式CLIは通常の設定で起動します）。読み取れないファイルはスキップし警告します。フォルダがない場合はそのツールは0件です。
 
 ## 検証
 
