@@ -18,5 +18,17 @@ final class SignatureTests: XCTestCase {
         XCTAssertTrue(key.publicKey.isValidSignature(signed,for:Data(canonical.utf8)))
         XCTAssertFalse(key.publicKey.isValidSignature(signed,for:Data((canonical+"tampered").utf8)))
         XCTAssertFalse(P256.Signing.PrivateKey().publicKey.isValidSignature(signed,for:Data(canonical.utf8)))
+
+        var check=URLRequest(url:URL(string:"https://fixture.invalid/api/sync/check")!);check.httpMethod="PUT"
+        let checkBody=Data("{\"check\":true}".utf8)
+        try Credential.sign(&check,body:checkBody,key:key)
+        let checkStamp=try XCTUnwrap(check.value(forHTTPHeaderField:"X-Sync-Timestamp"))
+        let checkNonce=try XCTUnwrap(check.value(forHTTPHeaderField:"X-Sync-Nonce"))
+        let checkSignature=try XCTUnwrap(check.value(forHTTPHeaderField:"X-Sync-Signature"))
+        let checkBytes=Data(stride(from:0,to:checkSignature.count,by:2).map { i in UInt8(checkSignature.dropFirst(i).prefix(2),radix:16)! })
+        let checkSigned=try P256.Signing.ECDSASignature(rawRepresentation:checkBytes)
+        let checkCanonical=["SESSION-CALENDAR-V1","PUT","https://fixture.invalid","/api/sync/check",checkStamp,checkNonce,Data(SHA256.hash(data:checkBody)).hex].joined(separator:"\n")
+        XCTAssertTrue(key.publicKey.isValidSignature(checkSigned,for:Data(checkCanonical.utf8)))
+        XCTAssertFalse(key.publicKey.isValidSignature(checkSigned,for:Data(canonical.utf8)))
     }
 }
