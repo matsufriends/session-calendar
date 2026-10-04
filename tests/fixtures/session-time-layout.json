@@ -134,6 +134,15 @@
       "start": "2026-10-04T13:15:00+09:00",
       "end": null,
       "last_activity": "2026-10-04T12:15:00+09:00"
+    },
+    {
+      "tool": "Claude",
+      "id": "dense-d",
+      "title": "Fixture 10:20 eighth lane",
+      "project": "fixture",
+      "start": "2026-10-04T10:20:00+09:00",
+      "end": null,
+      "last_activity": null
     }
   ],
   "warnings": []

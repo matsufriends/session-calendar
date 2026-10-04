@@ -87,3 +87,11 @@ test('clamped labels at the end of day reserve separate lanes',()=>{
  const a=runInNewContext(['instant','sessionEnd','sessionExtent','sessionSegment','layoutSessionItems'].map(definition).join('\n')+';layoutSessionItems(items,"2026-10-04")',{Date,items});
  assert.equal(a.laneCount,2);
 });
+
+test('eight dense lanes keep exact short bars and isolated start positions',()=>{
+ const items=Array.from({length:8},(_,i)=>({tool:'Codex',id:'dense-'+i,start:'2026-10-04T01:00:30Z',last_activity:'2026-10-04T01:01:00Z'}));
+ const a=runInNewContext(['instant','sessionEnd','sessionExtent','sessionSegment','layoutSessionItems'].map(definition).join('\n')+';layoutSessionItems(items,"2026-10-04")',{Date,items});
+ assert.equal(a.laneCount,8);
+ for(const s of items)assert.equal((geometry(s).segment.end-geometry(s).segment.start)/3600000*64,64/120);
+ assert.equal(geometry({start:'2026-10-04T14:37:15+09:00'}).position,64+(14+37/60+15/3600)*64);
+});
