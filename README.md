@@ -6,12 +6,14 @@ Claude Code / Codex CLI のローカル履歴を、Asia/Tokyo の週カレンダ
 
 ```sh
 cd session-calendar
-python3 -m pip install -r requirements.txt
-python3 app.py
+python3 -m venv .venv
+.venv/bin/python -m pip install -r requirements.txt
+.venv/bin/python app.py
 ```
 
-http://127.0.0.1:8765 を開きます。停止は起動したターミナルで Ctrl+C。別ポートは `python3 app.py --port 8766`。
+http://127.0.0.1:8765 を開きます。停止は起動したターミナルで Ctrl+C。別ポートは `.venv/bin/python app.py --port 8766`。次回以降は同じフォルダで `.venv/bin/python app.py` を実行します。
 Python 3.9 以降。題名をNativeと同じ書記素境界で切り詰めるため、固定版regexが必要です。恒久的な自動起動は登録していません。
+依存は専用venv内へ導入します。Homebrew Pythonのexternally-managed環境でも、システムPythonへのpipインストールは不要です。
 
 ## 機能
 
@@ -34,7 +36,7 @@ Pythonローカル版は外部通信・クラウド保存を行いません。HT
 
 ## 検証
 
-`python3 -m py_compile app.py`、実データ抽出と返却スキーマ検査、ブラウザーで週表示・一覧・フィルター・詳細の確認。
+起動手順で作成したvenvを使い、`.venv/bin/python -m py_compile app.py` と `PATH="$PWD/.venv/bin:$PATH" npm test` で人工fixtureを検証します。ブラウザーでは週表示・一覧・フィルター・詳細を確認します。
 
 ## 開発時の統合注意
 
@@ -56,7 +58,7 @@ dist/SessionCalendar.app/Contents/MacOS/SessionCalendar --self-test
 
 通常のローカルビルドはad-hoc署名です。`SIGN_IDENTITY`を指定した署名や公証は別工程で、配布可能なDeveloper ID署名・公証をこのビルドだけでは保証しません。`UNIVERSAL=1 zsh build-mac.sh` で両アーキテクチャをビルドします。
 
-Homebrew cask候補は `packaging/session-calendar.rb.in` です。公開先が確定した後、`python3 scripts/make_cask.py --url <archive-url>` でローカルのZIPからSHA256を設定します。公開releaseとtap更新はまだ行っていません。
+Homebrew cask候補は `packaging/session-calendar.rb.in` です。公開先が確定した後、`.venv/bin/python scripts/make_cask.py --url <archive-url>` でローカルのZIPからSHA256を設定します。公開releaseとtap更新はまだ行っていません。
 
 `--provision-key` は履歴を読まず専用署名鍵をKeychainへ作成し、公開鍵だけを標準出力へ返します。既存鍵を読み取れない場合は上書きせず失敗します。`--probe-empty-sync` は指定済みの専用ホストへ署名付きの非更新接続確認を送り、再送・偽署名の拒否を検査します。snapshotを変更せず、履歴も読みません。15秒で終了し、権限ダイアログは操作しません。Keychainのアクセス許可が必要な環境では、ユーザーによる確認が必要です。
 
@@ -66,4 +68,4 @@ Homebrew cask候補は `packaging/session-calendar.rb.in` です。公開先が�
 
 タイトル経路の匿名fixtureは `tests/fixtures/session-titles.json` をPython/Nativeで共有します。`TITLE_FIXTURE_SNAPSHOT=/tmp/native-title-snapshot.json swift test --package-path native`、`npm run build`、`node scripts/check_title_pipeline.mjs /tmp/native-title-snapshot.json` で、Nativeの実payloadを署名付きWorker同期と生成HTMLへ通し、題名の一致・匿名モード・本文の除外を確認します。実履歴・Keychain・外部通信は使用しません。
 
-PythonのローカルAPIとdry-runもNative同様、C0を空白に置換してから、UTF-16の300単位以内で書記素を壊さず切り詰めます。正規化後に空なら「無題」です。不正な単独surrogateを持つ題名metadataは採用しません。`python3 scripts/check_title_parity.py /tmp/native-title-snapshot.json` はNativeの実出力とPython API/dry-runを、共用のemoji・結合文字・境界・C0・空のfixtureで照合します。
+PythonのローカルAPIとdry-runもNative同様、C0を空白に置換してから、UTF-16の300単位以内で書記素を壊さず切り詰めます。正規化後に空なら「無題」です。不正な単独surrogateを持つ題名metadataは採用しません。`.venv/bin/python scripts/check_title_parity.py /tmp/native-title-snapshot.json` はNativeの実出力とPython API/dry-runを、共用のemoji・結合文字・境界・C0・空のfixtureで照合します。
