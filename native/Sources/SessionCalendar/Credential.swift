@@ -40,7 +40,9 @@ enum Credential {
         var nonce=Data(count:32)
         let status=nonce.withUnsafeMutableBytes { SecRandomCopyBytes(kSecRandomDefault,32,$0.baseAddress!) }
         guard status==errSecSuccess else { throw NSError(domain:NSOSStatusErrorDomain,code:Int(status)) }
-        let canonical=["SESSION-CALENDAR-V1","PUT",origin,"/api/sync",stamp,nonce.hex,Data(SHA256.hash(data:body)).hex].joined(separator:"\n")
+        guard let method=request.httpMethod,method=="PUT" else { throw CocoaError(.fileReadInvalidFileName) }
+        let path=url.path
+        let canonical=["SESSION-CALENDAR-V1",method,origin,path,stamp,nonce.hex,Data(SHA256.hash(data:body)).hex].joined(separator:"\n")
         let signature=try key.signature(for:Data(canonical.utf8)).rawRepresentation
         request.setValue(stamp,forHTTPHeaderField:"X-Sync-Timestamp")
         request.setValue(nonce.hex,forHTTPHeaderField:"X-Sync-Nonce")
