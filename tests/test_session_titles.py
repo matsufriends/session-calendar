@@ -13,12 +13,12 @@ class SessionTitleTests(unittest.TestCase):
             for case in cases:
                 base=root/('.codex/sessions' if case['tool']=='Codex' else '.claude/projects/fixture')
                 base.mkdir(parents=True,exist_ok=True)
-                (base/(case['id']+'.jsonl')).write_text(''.join(json.dumps(r)+'\n' for r in case['records']))
+                (base/(case['id']+'.jsonl')).write_text(''.join(json.dumps(r)+'\n' for r in case['records'])+''.join(r+'\n' for r in case.get('raw_records',[])))
             (root/'.codex/session_index.jsonl').write_text(''.join(json.dumps(c['index'])+'\n' for c in cases if 'index' in c))
             result=app.collect(root)
         self.assertFalse(result['warnings'])
         rows={r['id']:r for r in result['sessions']}
-        for case in cases:self.assertEqual(rows[case['id']]['title'],case['expected'])
+        for case in cases:self.assertEqual(rows[case['id']]['title'],app.normalized_title(case['expected']))
         self.assertNotIn('Body must remain local',json.dumps(result))
         self.assertNotIn('Body must remain local',json.dumps(sync.snapshot(result,True)))
         private=sync.snapshot(result)

@@ -6,11 +6,12 @@ Claude Code / Codex CLI のローカル履歴を、Asia/Tokyo の週カレンダ
 
 ```sh
 cd session-calendar
+python3 -m pip install -r requirements.txt
 python3 app.py
 ```
 
 http://127.0.0.1:8765 を開きます。停止は起動したターミナルで Ctrl+C。別ポートは `python3 app.py --port 8766`。
-Python 3.9 以降、追加依存なし。恒久的な自動起動は登録していません。
+Python 3.9 以降。題名をNativeと同じ書記素境界で切り詰めるため、固定版regexが必要です。恒久的な自動起動は登録していません。
 
 ## 機能
 
@@ -64,3 +65,5 @@ Homebrew cask候補は `packaging/session-calendar.rb.in` です。公開先が�
 常駐版は「接続を確認して同期を開始」の一度の操作で既存鍵をKeychainから正規読取し、同じプロセス内に保持します。snapshot非更新の署名付き接続確認が成功し、続く履歴読取も成功した場合に匿名メタデータを初回送信して5分同期を継続します。送信ごとのKeychain読取は行いません。終了時にプロセス内の鍵を破棄し、再起動で対話なしの読取が拒否された場合は本人の開始操作を待ちます。ACLは変更しません。`--start-resident-sync`はこの同じ常駐開始操作をGUI起動時に指定する明示フラグです。閲覧URLは同期URLとは別の設定です。
 
 タイトル経路の匿名fixtureは `tests/fixtures/session-titles.json` をPython/Nativeで共有します。`TITLE_FIXTURE_SNAPSHOT=/tmp/native-title-snapshot.json swift test --package-path native`、`npm run build`、`node scripts/check_title_pipeline.mjs /tmp/native-title-snapshot.json` で、Nativeの実payloadを署名付きWorker同期と生成HTMLへ通し、題名の一致・匿名モード・本文の除外を確認します。実履歴・Keychain・外部通信は使用しません。
+
+PythonのローカルAPIとdry-runもNative同様、C0を空白に置換してから、UTF-16の300単位以内で書記素を壊さず切り詰めます。正規化後に空なら「無題」です。不正な単独surrogateを持つ題名metadataは採用しません。`python3 scripts/check_title_parity.py /tmp/native-title-snapshot.json` はNativeの実出力とPython API/dry-runを、共用のemoji・結合文字・境界・C0・空のfixtureで照合します。

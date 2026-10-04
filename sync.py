@@ -9,7 +9,7 @@ def snapshot(source, include_titles=False):
     for s in source['sessions']:
         r={k:s.get(k) for k in KEYS}
         r['project']=str(r['project'] or '不明').replace('\\','/').rstrip('/').split('/')[-1][:200] or '不明'
-        r['title']=str(r['title'])[:300] if include_titles else f"{r['tool']} セッション {str(r['id'])[:8]}"
+        r['title']=app.normalized_title(str(r['title'])) if include_titles else f"{r['tool']} セッション {str(r['id'])[:8]}"
         for k in ('start','last_activity'):
             if r[k]:r[k]=datetime.fromisoformat(r[k].replace('Z','+00:00')).isoformat()
         r['end']=None;rows.append(r)

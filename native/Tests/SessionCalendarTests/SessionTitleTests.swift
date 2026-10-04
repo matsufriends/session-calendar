@@ -13,7 +13,7 @@ final class SessionTitleTests: XCTestCase {
             let base = root.appendingPathComponent(tool == "Codex" ? ".codex/sessions" : ".claude/projects/fixture")
             try FileManager.default.createDirectory(at: base, withIntermediateDirectories: true)
             let records = try XCTUnwrap(item["records"] as? [[String: Any]])
-            let lines = try records.map { String(decoding: try JSONSerialization.data(withJSONObject: $0), as: UTF8.self) + "\n" }.joined()
+            let lines = try records.map { String(decoding: try JSONSerialization.data(withJSONObject: $0), as: UTF8.self) + "\n" }.joined() + (item["raw_records"] as? [String] ?? []).map { $0 + "\n" }.joined()
             try Data(lines.utf8).write(to: base.appendingPathComponent(id + ".jsonl"))
             if let row = item["index"] as? [String: Any] { index.append(row) }
         }

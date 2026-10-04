@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
-"""Local, read-only session metadata calendar. Standard library only."""
+"""Local, read-only session metadata calendar."""
 import json, argparse, threading, time, re
+from title_normalization import normalized_title
 from datetime import datetime, timedelta
 from pathlib import Path
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -27,7 +28,9 @@ def parse_instant(value):
     except (ValueError,OverflowError): return None
 def title_value(value):
     # Only explicit title metadata: never derive a heading from message content.
-    return value if isinstance(value,str) and value.strip() else ''
+    if not isinstance(value,str) or not value.strip(): return ''
+    try: return normalized_title(value)
+    except UnicodeError: return ''  # Native JSONLines rejects invalid Unicode strings too.
 def collect(home=None):
     home=Path.home() if home is None else Path(home)
     sessions=[]; errors=[]; names={}

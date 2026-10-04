@@ -234,6 +234,126 @@
         "thread_name": "\n ",
         "updated_at": "2026-10-04T01:05:00Z"
       }
+    },
+    {
+      "id": "claude-custom-long",
+      "tool": "Claude",
+      "records": [
+        {
+          "type": "user",
+          "sessionId": "claude-custom-long",
+          "cwd": "/tmp/FixtureProject",
+          "timestamp": "2026-10-04T01:00:00Z"
+        },
+        {
+          "type": "custom-title",
+          "customTitle": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      ],
+      "expected": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "id": "claude-ai-surrogate",
+      "tool": "Claude",
+      "records": [
+        {
+          "type": "user",
+          "sessionId": "claude-ai-surrogate",
+          "cwd": "/tmp/FixtureProject",
+          "timestamp": "2026-10-04T01:00:00Z"
+        },
+        {
+          "type": "ai-title",
+          "aiTitle": "😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀"
+        }
+      ],
+      "expected": "😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀"
+    },
+    {
+      "id": "claude-summary-combining",
+      "tool": "Claude",
+      "records": [
+        {
+          "type": "user",
+          "sessionId": "claude-summary-combining",
+          "cwd": "/tmp/FixtureProject",
+          "timestamp": "2026-10-04T01:00:00Z"
+        },
+        {
+          "type": "summary",
+          "summary": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaéz"
+        }
+      ],
+      "expected": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaéz"
+    },
+    {
+      "id": "claude-ai-control",
+      "tool": "Claude",
+      "records": [
+        {
+          "type": "user",
+          "sessionId": "claude-ai-control",
+          "cwd": "/tmp/FixtureProject",
+          "timestamp": "2026-10-04T01:00:00Z"
+        },
+        {
+          "type": "ai-title",
+          "aiTitle": "Fixture\u0001task"
+        }
+      ],
+      "expected": "Fixture\u0001task"
+    },
+    {
+      "id": "claude-escaped-pair",
+      "tool": "Claude",
+      "records": [
+        {
+          "type": "user",
+          "sessionId": "claude-escaped-pair",
+          "cwd": "/tmp/FixtureProject",
+          "timestamp": "2026-10-04T01:00:00Z"
+        }
+      ],
+      "raw_records": [
+        "{\"type\":\"ai-title\",\"aiTitle\":\"\\ud83d\\ude00\"}"
+      ],
+      "expected": "😀"
+    },
+    {
+      "id": "claude-unpaired-surrogate",
+      "tool": "Claude",
+      "records": [
+        {
+          "type": "user",
+          "sessionId": "claude-unpaired-surrogate",
+          "cwd": "/tmp/FixtureProject",
+          "timestamp": "2026-10-04T01:00:00Z"
+        }
+      ],
+      "raw_records": [
+        "{\"type\":\"ai-title\",\"aiTitle\":\"\\ud800\"}"
+      ],
+      "expected": "作業名不明"
+    },
+    {
+      "id": "codex-index-long",
+      "tool": "Codex",
+      "records": [
+        {
+          "type": "session_meta",
+          "payload": {
+            "id": "codex-index-long",
+            "cwd": "/tmp/FixtureProject",
+            "timestamp": "2026-10-04T01:00:00Z"
+          }
+        }
+      ],
+      "index": {
+        "id": "codex-index-long",
+        "thread_name": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "updated_at": "2026-10-04T01:05:00Z"
+      },
+      "expected": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
     }
   ]
 }

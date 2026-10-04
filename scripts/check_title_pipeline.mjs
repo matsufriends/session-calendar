@@ -8,6 +8,7 @@ if(!path)throw Error('Usage: node scripts/check_title_pipeline.mjs /absolute/nat
 const cases=JSON.parse(await readFile(new URL('../tests/fixtures/session-titles.json',import.meta.url))).cases;
 const html=await readFile(new URL('../cloud/public/index.html',import.meta.url),'utf8');
 const definitions=['workTitle','node','detail'].map(name=>html.match(new RegExp('^function '+name+'\\(.*$','m'))[0]).join('\n');
+function normalizedTitle(title){let result='',length=0;for(const {segment} of new Intl.Segmenter('en',{granularity:'grapheme'}).segment(title.replace(/[\u0000-\u001f]/g,' '))){if(length+segment.length>300)break;result+=segment;length+=segment.length}return result||'無題'}
 class Element {
  constructor(tag){this.tag=tag;this.children=[];}
  append(...nodes){this.children.push(...nodes);}
@@ -30,7 +31,7 @@ for(const anonymous of [false,true]) {
  assert.deepEqual(received.sessions,snapshot.sessions);
  for(const row of received.sessions) {
   const item=cases.find(c=>c.id===row.id);
-  assert.equal(row.title,anonymous?`${row.tool} セッション ${row.id.slice(0,8)}`:item.expected.replace(/[\u0000-\u001f]/g,' '));
+  assert.equal(row.title,anonymous?`${row.tool} セッション ${row.id.slice(0,8)}`:normalizedTitle(item.expected));
   const heading=anonymous?'作業名未受信':row.title,detail=new Element('aside');
   const context={document:{createElement:tag=>new Element(tag)},$:()=>detail,dt:()=> 'fixture time',row};
   runInNewContext(definitions+';detail(row)',context);

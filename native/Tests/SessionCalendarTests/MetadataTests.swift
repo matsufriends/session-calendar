@@ -17,6 +17,7 @@ final class MetadataTests: XCTestCase {
     func testPreparedTitleMatchesSharedNormalizationFixtures() throws {
         let fixtureURL = try XCTUnwrap(Bundle.module.url(forResource: "title-normalization", withExtension: "json", subdirectory: "Fixtures"))
         let fixtures = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: fixtureURL)) as? [[String: Any]])
+        var exported: [[String: String]] = []
         for fixture in fixtures {
             func expanded(_ value: Any) throws -> String {
                 if let string = value as? String { return string }
@@ -32,6 +33,10 @@ final class MetadataTests: XCTestCase {
             XCTAssertEqual(prepared.sessions[0].title, expected, fixture["name"] as? String ?? "fixture")
             XCTAssertLessThanOrEqual(prepared.sessions[0].title.utf16.count, 300)
             XCTAssertFalse(prepared.sessions[0].title.unicodeScalars.contains { $0.value <= 0x1f })
+            exported.append(["name": fixture["name"] as? String ?? "fixture", "title": prepared.sessions[0].title])
+        }
+        if let path = ProcessInfo.processInfo.environment["TITLE_FIXTURE_SNAPSHOT"] {
+            try JSONSerialization.data(withJSONObject: exported).write(to: URL(fileURLWithPath: path + ".normalization"))
         }
     }
     func testBothSourcesWithArtificialMetadataOnly() throws {
