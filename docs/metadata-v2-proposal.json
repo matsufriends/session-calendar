@@ -1,0 +1,33 @@
+{
+  "status": "proposal_only_not_implemented_not_transmitted",
+  "privacy_defaults": {"anonymous_titles": true, "work_summary_sync": false, "edited_file_sync": false},
+  "allowed_inputs": {
+    "title": "explicit user-visible title metadata only; existing anonymous default preserved",
+    "work_summary": "assistant role + explicitly final/final_answer channel or phase + user-visible output_text; reject missing visibility/channel and all analysis/reasoning/system/developer content",
+    "edited_files": "allowlisted edit tool names and structured filepath/edit fields only; no shell command, patch body, tool output or arbitrary JSON text search",
+    "last_activity": "explicit timestamp of allowed observed event",
+    "state": "explicit official task run state or explicit lifecycle event only; otherwise show last activity with unknown completion",
+    "project": "project basename; edited files relative to that project, never absolute home paths"
+  },
+  "examples": [
+    {
+      "id": "fixture-cli-1", "source": "codex-cli", "tool": "Codex", "project": "FixtureProject",
+      "title": "Codex セッション fixture-",
+      "anchor": {"timestamp": "2026-10-04T01:00:00Z", "kind": "recorded_session_start", "label": "開始記録"},
+      "last_activity": "2026-10-04T01:05:00Z", "end": null, "state": {"value": "unobserved", "label": "最終活動のみ"},
+      "optional_work_summary": {"text": "テスト用カレンダーに現在時刻の目印を追加し、移動操作を確認しました。", "origin": "user_visible_assistant_final"},
+      "optional_edited_files": [{"relative_path": "src/calendar.js", "edit_count": 2}]
+    },
+    {
+      "id": "fixture-dot-task-1", "source": "dot-task", "tool": "Codex", "project": "FixtureProject",
+      "title": "Codex タスク fixture-",
+      "anchor": {"timestamp": "2026-10-04T00:30:00Z", "kind": "task_registered", "label": "タスク登録"},
+      "last_activity": null, "end": null,
+      "state": {"value": "reported_running", "label": "公式metadata受信時のrun状態", "observed_at": "2026-10-04T01:00:00Z"},
+      "import_mode": "manual_official_metadata_snapshot_not_continuous_connection",
+      "optional_work_summary": null, "optional_edited_files": []
+    }
+  ],
+  "rejected_inputs": ["hidden analysis", "reasoning content", "system/developer instructions", "session cookies or tokens", "raw conversation", "tool output", "absolute home paths", "completion inferred from last_activity", "duration inferred from registration time"],
+  "approval_needed_before_cloud_sync": ["whether to include explicit titles", "whether to include sanitized user-visible work summary", "whether to include relative edited-file names/counts", "whether to import official dot-task snapshots"]
+}

@@ -103,7 +103,7 @@ enum Spacing {
             } catch { enabled=false;defaults.set(false,forKey:"syncEnabled");status="接続確認に失敗しました";errorMessage="空データの認証確認が完了していません" }
         }
     }
-    func shutdown() { task?.cancel(); residentKey=nil }
+    func shutdown() { task?.cancel(); residentKey=nil; enabled=false }
     func beginSettings() { pause(); draftEndpoint = endpoint; showSettings = true }
     func saveConnection() {
         guard Self.syncURL(draftEndpoint) != nil else { errorMessage = "HTTPSの /api/sync URLを指定してください"; return }

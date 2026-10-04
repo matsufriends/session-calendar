@@ -35,6 +35,16 @@ import CryptoKit
         m.pause(); XCTAssertFalse(m.enabled); XCTAssertFalse(d.bool(forKey:"syncEnabled"))
         XCTAssertEqual(m.status,"送信は一時停止中")
     }
+    func testQuitClearsActiveSessionButPreservesLoginSyncPreference() async {
+        let (m,d,n)=fixture();defer { d.removePersistentDomain(forName:n) }
+        m.endpoint="https://fixture.invalid/api/sync";m.enable();await m.waitForSyncForTesting()
+        XCTAssertTrue(d.bool(forKey:"syncEnabled"))
+        m.shutdown()
+        XCTAssertFalse(m.enabled)
+        XCTAssertTrue(d.bool(forKey:"syncEnabled"))
+        m.syncNow();await m.waitForSyncForTesting()
+        XCTAssertFalse(m.enabled)
+    }
     func testFailureDoesNotMarkSuccess() async {
         let (m,d,n)=fixture(500); defer { d.removePersistentDomain(forName:n) }
         m.endpoint="https://fixture.invalid/api/sync"; m.enable(); await m.waitForSyncForTesting()
