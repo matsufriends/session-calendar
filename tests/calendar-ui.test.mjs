@@ -46,3 +46,12 @@ test('date helpers treat offset timestamps as instants and leave invalid dates u
  assert.equal(run('dt','not-a-datetime'),'不明');
  assert.match(runInNewContext(definition('instant')+'\n'+definition('daykey')+'\n'+definition('today')+';today()',{Intl,Date}),/^\d{4}-\d{2}-\d{2}$/);
 });
+test('headings show work names and tools stay in the existing small label',()=>{
+ const title=row=>runInNewContext(definition('workTitle')+';workTitle(row)',{row});
+ assert.equal(title({title:'検索を改善',tool:'Claude',id:'fixture-1'}),'検索を改善');
+ assert.equal(title({title:'Claude セッション fixture-',tool:'Claude',id:'fixture-1'}),'作業名未受信');
+ assert.equal(title({title:'作業名不明',tool:'Codex',id:'fixture-2'}),'作業名不明');
+ assert.equal(title({title:' ',tool:'Codex',id:'fixture-2'}),'作業名未受信');
+ assert.match(source,/node\('small',`\$\{dt\(s.start\).slice\(-5\)\} · \$\{s.tool\}`\),node\('strong',workTitle\(s\)\)/);
+ assert.match(source,/node\('h2',workTitle\(s\)\)/);
+});

@@ -62,6 +62,11 @@ enum Metadata {
         }
         return result.isEmpty ? "無題" : result
     }
+    private static func titleValue(_ value: Any?) -> String? {
+        guard let text = value as? String,
+              !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
+        return text
+    }
     private static func instant(_ value: Any?) -> (date: Date, text: String)? {
         guard let text = value as? String, !text.isEmpty else { return nil }
         let pattern = #"^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2})(\.(\d+))?)?(Z|[+-]\d{2}:?\d{2})$"#
@@ -131,13 +136,13 @@ enum Metadata {
                 if file.pathComponents.contains("subagents") { continue }
                 do {
                     let lines = try JSONLines(file)
-                    var id = file.deletingPathExtension().lastPathComponent, start: (date: Date, text: String)?, last: (date: Date, text: String)?, project = "", title = ""
+                    var id = file.deletingPathExtension().lastPathComponent, start: (date: Date, text: String)?, last: (date: Date, text: String)?, project = "", title = "", aiTitle = "", summary = ""
                     if tool == "Codex" {
                         guard let r = try lines.next(), r["type"] as? String == "session_meta", let p = r["payload"] as? [String: Any] else { continue }
                         id = p["id"] as? String ?? p["session_id"] as? String ?? id
                         start = instant(p["timestamp"] as? String ?? r["timestamp"])
                         project = p["cwd"] as? String ?? ""
-                        title = names[id]?["thread_name"] as? String ?? ""
+                        title = titleValue(names[id]?["thread_name"]) ?? ""
                         last = instant(names[id]?["updated_at"])
                     } else {
                         while let r = try lines.next() {
@@ -147,11 +152,13 @@ enum Metadata {
                                 if start == nil || parsed.date < start!.date { start = parsed }
                                 if last == nil || parsed.date > last!.date { last = parsed }
                             }
-                            if r["type"] as? String == "custom-title" { title = r["customTitle"] as? String ?? title }
+                            if r["type"] as? String == "custom-title" { title = titleValue(r["customTitle"]) ?? title }
+                            if r["type"] as? String == "ai-title" { aiTitle = titleValue(r["aiTitle"]) ?? aiTitle }
+                            if r["type"] as? String == "summary" { summary = titleValue(r["summary"]) ?? summary }
                         }
                     }
                     if let start {
-                        rows[tool + ":" + id] = SessionRecord(id: id, tool: tool, start: start.text, last_activity: last?.text, project: projectLabel(project), title: title.isEmpty ? "\(tool) セッション \(id.prefix(8))" : title)
+                        rows[tool + ":" + id] = SessionRecord(id: id, tool: tool, start: start.text, last_activity: last?.text, project: projectLabel(project), title: [title, aiTitle, summary].first(where: { !$0.isEmpty }) ?? "作業名不明")
                     }
                 } catch { failures += 1 }
             }

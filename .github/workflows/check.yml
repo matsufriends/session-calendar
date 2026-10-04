@@ -26,5 +26,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: swift test --package-path native
+        env:
+          TITLE_FIXTURE_SNAPSHOT: ${{ runner.temp }}/native-title-snapshot.json
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: node scripts/check_title_pipeline.mjs "$TITLE_FIXTURE_SNAPSHOT"
+        env:
+          TITLE_FIXTURE_SNAPSHOT: ${{ runner.temp }}/native-title-snapshot.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: synthetic-title-fixtures
+          path: ${{ runner.temp }}/native-title-snapshot.json*
       - run: zsh build-mac.sh
       - run: dist/SessionCalendar.app/Contents/MacOS/SessionCalendar --self-test

@@ -1,0 +1,239 @@
+{
+  "cases": [
+    {
+      "id": "claude-ai",
+      "tool": "Claude",
+      "records": [
+        {
+          "type": "user",
+          "sessionId": "claude-ai",
+          "cwd": "/tmp/FixtureProject",
+          "timestamp": "2026-10-04T01:00:00Z",
+          "message": {
+            "content": "Body must remain local"
+          }
+        },
+        {
+          "type": "ai-title",
+          "aiTitle": "カレンダーの検索を改善"
+        }
+      ],
+      "expected": "カレンダーの検索を改善"
+    },
+    {
+      "id": "claude-custom",
+      "tool": "Claude",
+      "records": [
+        {
+          "type": "user",
+          "sessionId": "claude-custom",
+          "cwd": "/tmp/FixtureProject",
+          "timestamp": "2026-10-04T01:00:00Z",
+          "message": {
+            "content": "Body must remain local"
+          }
+        },
+        {
+          "type": "custom-title",
+          "customTitle": "選んだ作業名"
+        },
+        {
+          "type": "ai-title",
+          "aiTitle": "自動題名"
+        },
+        {
+          "type": "summary",
+          "summary": "要約題名"
+        },
+        {
+          "type": "custom-title",
+          "customTitle": " "
+        },
+        {
+          "type": "custom-title",
+          "customTitle": 42
+        }
+      ],
+      "expected": "選んだ作業名"
+    },
+    {
+      "id": "claude-summary",
+      "tool": "Claude",
+      "records": [
+        {
+          "type": "user",
+          "sessionId": "claude-summary",
+          "cwd": "/tmp/FixtureProject",
+          "timestamp": "2026-10-04T01:00:00Z",
+          "message": {
+            "content": "Body must remain local"
+          }
+        },
+        {
+          "type": "summary",
+          "summary": "Fixture summary task"
+        },
+        {
+          "type": "summary",
+          "summary": null
+        }
+      ],
+      "expected": "Fixture summary task"
+    },
+    {
+      "id": "claude-latest",
+      "tool": "Claude",
+      "records": [
+        {
+          "type": "user",
+          "sessionId": "claude-latest",
+          "cwd": "/tmp/FixtureProject",
+          "timestamp": "2026-10-04T01:00:00Z",
+          "message": {
+            "content": "Body must remain local"
+          }
+        },
+        {
+          "type": "ai-title",
+          "aiTitle": "Old task"
+        },
+        {
+          "type": "ai-title",
+          "aiTitle": "New task"
+        },
+        {
+          "type": "custom-title",
+          "customTitle": "Sidechain task",
+          "isSidechain": true
+        }
+      ],
+      "expected": "New task"
+    },
+    {
+      "id": "claude-absent",
+      "tool": "Claude",
+      "records": [
+        {
+          "type": "user",
+          "sessionId": "claude-absent",
+          "cwd": "/tmp/FixtureProject",
+          "timestamp": "2026-10-04T01:00:00Z",
+          "message": {
+            "content": "Body must remain local"
+          }
+        },
+        {
+          "type": "assistant",
+          "message": {
+            "summary": "Do not extract this body"
+          }
+        },
+        {
+          "type": "custom-title",
+          "customTitle": []
+        },
+        {
+          "type": "ai-title",
+          "aiTitle": "\t\n"
+        }
+      ],
+      "expected": "作業名不明"
+    },
+    {
+      "id": "claude-escaped",
+      "tool": "Claude",
+      "records": [
+        {
+          "type": "user",
+          "sessionId": "claude-escaped",
+          "cwd": "/tmp/FixtureProject",
+          "timestamp": "2026-10-04T01:00:00Z",
+          "message": {
+            "content": "Body must remain local"
+          }
+        },
+        {
+          "type": "ai-title",
+          "aiTitle": "<img src=x onerror=alert(1)>\nFixture"
+        }
+      ],
+      "expected": "<img src=x onerror=alert(1)>\nFixture"
+    },
+    {
+      "id": "codex-index",
+      "tool": "Codex",
+      "records": [
+        {
+          "type": "session_meta",
+          "payload": {
+            "id": "codex-index",
+            "cwd": "/tmp/FixtureProject",
+            "timestamp": "2026-10-04T01:00:00Z"
+          }
+        },
+        {
+          "type": "response_item",
+          "payload": {
+            "role": "user",
+            "content": "Body must remain local"
+          }
+        }
+      ],
+      "expected": "索引の作業名",
+      "index": {
+        "id": "codex-index",
+        "thread_name": "索引の作業名",
+        "updated_at": "2026-10-04T01:05:00Z"
+      }
+    },
+    {
+      "id": "codex-absent",
+      "tool": "Codex",
+      "records": [
+        {
+          "type": "session_meta",
+          "payload": {
+            "id": "codex-absent",
+            "cwd": "/tmp/FixtureProject",
+            "timestamp": "2026-10-04T01:00:00Z"
+          }
+        },
+        {
+          "type": "response_item",
+          "payload": {
+            "role": "user",
+            "content": "Body must remain local"
+          }
+        }
+      ],
+      "expected": "作業名不明"
+    },
+    {
+      "id": "codex-blank",
+      "tool": "Codex",
+      "records": [
+        {
+          "type": "session_meta",
+          "payload": {
+            "id": "codex-blank",
+            "cwd": "/tmp/FixtureProject",
+            "timestamp": "2026-10-04T01:00:00Z"
+          }
+        },
+        {
+          "type": "response_item",
+          "payload": {
+            "role": "user",
+            "content": "Body must remain local"
+          }
+        }
+      ],
+      "expected": "作業名不明",
+      "index": {
+        "id": "codex-blank",
+        "thread_name": "\n ",
+        "updated_at": "2026-10-04T01:05:00Z"
+      }
+    }
+  ]
+}

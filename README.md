@@ -21,9 +21,9 @@ Python 3.9 以降、追加依存なし。恒久的な自動起動は登録して
 
 ## データと安全性
 
-読取対象は `~/.codex/sessions/**/*.jsonl` の先頭 session_meta と `~/.codex/session_index.jsonl`、`~/.claude/projects/**/*.jsonl` です。Claude の subagents / isSidechain は除外します。既存ファイルには書き込みません。タイトルは明示タイトルだけを使い、ない場合はツール名と短いIDです。プロジェクトはcwdの最後の名前です。
+読取対象は `~/.codex/sessions/**/*.jsonl` の先頭 session_meta と `~/.codex/session_index.jsonl`、`~/.claude/projects/**/*.jsonl` です。Claude の subagents / isSidechain は除外します。既存ファイルには書き込みません。タイトルはCodexの索引のthread_name、Claudeのcustom-title/customTitle → ai-title/aiTitle → summary/summaryの優先順で、各種類の最後の空でない正式metadataを使います。ない場合は「作業名不明」です。匿名化された既存形式のタイトルは、見出しでは「作業名未受信」と表示し、ツール名は小さいラベルに表示します。プロジェクトはcwdの最後の名前です。
 
-Claude ログはJSONをパースして日時・cwd・ID・明示タイトルだけ抽出します。会話本文・ツール出力は保存、検索、表示、API送信しません。Codexログは先頭行だけ読みます。CLIの保存形式に依存するため、今後の形式変更により読取調整が必要になる場合があります。アーカイブされたCodex履歴は対象外です。
+Claude ログはJSONをパースして日時・cwd・ID・明示タイトルだけ抽出します。会話本文・ツール出力は保存、検索、表示、API送信しません。Codexログは先頭行だけ読みます。Claudeのsummaryはtype=summaryの正式metadataだけを題名のfallbackとして扱い、message本文内のsummaryは読みません。CLIの保存形式に依存するため、今後の形式変更により読取調整が必要になる場合があります。アーカイブされたCodex履歴は対象外です。
 
 終了日時は不明として扱います。「最後の記録」はClaudeの最後のメッセージ日時、Codexのタイトル索引のupdated_atであり、終了を意味しません。カレンダーのカード高さと重なり回避の幅は表示上の配置で、実際の所要時間ではありません。
 
@@ -62,3 +62,5 @@ Homebrew cask候補は `packaging/session-calendar.rb.in` です。公開先が�
 本人が正規のKeychain認証要求を確認する場合だけ、`--authorize-empty-sync`を手動実行します。専用既存鍵の読取1回だけを要求し、登録公開鍵との一致を確認してsnapshot非更新の接続確認を送ります。履歴読取・鍵の生成/削除・ACL書換・自動起動を行いません。120秒で終了します。macOSのダイアログで項目とアプリが一致していることを確認し、必要なら本人がMacのキーチェーンパスワードを入力して「今回のみ許可／Allow Once」を選びます。恒久許可やアクセス制御の編集はこの検査には必要ありません。このモードは自動検査から起動しません。
 
 常駐版は「接続を確認して同期を開始」の一度の操作で既存鍵をKeychainから正規読取し、同じプロセス内に保持します。snapshot非更新の署名付き接続確認が成功し、続く履歴読取も成功した場合に匿名メタデータを初回送信して5分同期を継続します。送信ごとのKeychain読取は行いません。終了時にプロセス内の鍵を破棄し、再起動で対話なしの読取が拒否された場合は本人の開始操作を待ちます。ACLは変更しません。`--start-resident-sync`はこの同じ常駐開始操作をGUI起動時に指定する明示フラグです。閲覧URLは同期URLとは別の設定です。
+
+タイトル経路の匿名fixtureは `tests/fixtures/session-titles.json` をPython/Nativeで共有します。`TITLE_FIXTURE_SNAPSHOT=/tmp/native-title-snapshot.json swift test --package-path native`、`npm run build`、`node scripts/check_title_pipeline.mjs /tmp/native-title-snapshot.json` で、Nativeの実payloadを署名付きWorker同期と生成HTMLへ通し、題名の一致・匿名モード・本文の除外を確認します。実履歴・Keychain・外部通信は使用しません。
