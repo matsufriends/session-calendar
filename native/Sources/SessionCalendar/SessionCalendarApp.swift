@@ -159,6 +159,15 @@ enum Spacing {
 @main struct SessionCalendarApp: App {
     @StateObject private var model: AppModel
     init() {
+        if CommandLine.arguments.contains("--enable-login-startup") {
+            do {
+                let before=SMAppService.mainApp.status
+                if before == .notRegistered || before == .notFound { try SMAppService.mainApp.register() }
+                let after=SMAppService.mainApp.status
+                print("{\"login_status_before\":\(before.rawValue),\"login_status_after\":\(after.rawValue),\"unregister_called\":false}")
+                exit(after == .enabled ? 0 : 2)
+            } catch { fputs("Login registration failed: \(error)\n",stderr);exit(1) }
+        }
         if CommandLine.arguments.contains("--authorize-empty-sync") { EmptySyncProbe.run(allowKeychainPrompt: true) }
         if CommandLine.arguments.contains("--probe-empty-sync") { EmptySyncProbe.run() }
         if CommandLine.arguments.contains("--provision-key") {
