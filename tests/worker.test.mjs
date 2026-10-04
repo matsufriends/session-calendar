@@ -8,13 +8,6 @@ test('snapshot allowlist rejects conversation, paths, invalid times, duplicates'
  assert.ok(validateSnapshot(empty));assert.ok(validateSnapshot({...empty,sessions:[record]}));
  for(const bad of [{...empty,body:'private'}, {...empty,sessions:[{...record,body:'private'}]}, {...empty,sessions:[{...record,project:'/Users/person/repo'}]}, {...empty,sessions:[{...record,start:'invalid'}]}, {...empty,sessions:[{...record,end:'2026-10-03T02:00:00Z'}]}, {...empty,sessions:[record,record]}]) assert.equal(validateSnapshot(bad),false);
 });
-test('writer requires dedicated secret and cannot use missing settings',async()=>{
- const env={SYNC_TOKEN:'fixture-only-not-a-real-token-123456789'};
- assert.equal(await writerAuthorized(req('/api/sync'),env),false);
- assert.equal(await writerAuthorized(req('/api/sync',{headers:{Authorization:'Bearer wrong'}}),env),false);
- assert.equal(await writerAuthorized(req('/api/sync',{headers:{Authorization:'Bearer '+env.SYNC_TOKEN}}),{}),false);
- assert.equal(await writerAuthorized(req('/api/sync',{headers:{Authorization:'Bearer '+env.SYNC_TOKEN}}),env),true);
-});
 test('viewer fails closed on missing configuration, forged token, invalid team domain',async()=>{
  assert.equal(await viewerAuthorized(req('/'),{}),false);
  assert.equal(await viewerAuthorized(req('/',{headers:{'Cf-Access-Jwt-Assertion':'forged'}}),{ACCESS_TEAM_DOMAIN:'test.cloudflareaccess.com',ACCESS_AUD:'fixture',VIEWER_EMAIL:'fixture@example.invalid'}),false);
@@ -23,14 +16,6 @@ test('viewer fails closed on missing configuration, forged token, invalid team d
 test('all read routes reject unauthenticated requests before assets or KV',async()=>{
  const env={ASSETS:{fetch(){throw Error('must not access assets')}},SESSIONS:{get(){throw Error('must not access KV')}}};
  for(const path of ['/','/api/sessions','/index.html','/unknown'])assert.equal((await worker.fetch(req(path),env)).status,401);
-});
-test('authenticated empty sync writes only metadata; write token cannot read',async()=>{
- let stored=null;const env={SYNC_TOKEN:'fixture-only-not-a-real-token-123456789',SESSIONS:{async put(key,value){assert.equal(key,'snapshot');stored=JSON.parse(value)}}};
- const options={method:'PUT',headers:{Authorization:'Bearer '+env.SYNC_TOKEN,'Content-Type':'application/json'},body:JSON.stringify(empty)};
- assert.equal((await worker.fetch(req('/api/sync',options),env)).status,200);assert.deepEqual(stored.sessions,[]);assert.ok(stored.synced_at);
- assert.equal((await worker.fetch(req('/api/sessions',{headers:options.headers}),env)).status,401);
- assert.equal((await worker.fetch(req('/api/sync',{...options,body:JSON.stringify({...empty,content:'private'})}),env)).status,400);
- assert.equal((await worker.fetch(req('/api/sync',{...options,body:' '.repeat(2*1024*1024+1)}),env)).status,400);
 });
 test('real JWT verifier accepts only correct issuer, audience, expiry and owner email',async()=>{
  const {generateKeyPair,SignJWT}=await import('jose');

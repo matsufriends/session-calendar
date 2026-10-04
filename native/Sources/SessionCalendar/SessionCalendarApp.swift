@@ -17,7 +17,6 @@ enum Spacing {
     @Published var includeTitles: Bool = false
     @Published var endpoint: String = ""
     @Published var draftEndpoint: String = ""
-    @Published var tokenInput = ""
     @Published var showSettings = false
     @Published var busy = false
     @Published var lastSync: Date? = nil
@@ -31,14 +30,14 @@ enum Spacing {
     private lazy var session = URLSession(configuration: .ephemeral, delegate: noRedirect, delegateQueue: nil)
     private let defaults: UserDefaults
     private let collectMetadata: () -> Collection
-    private let tokenProvider: () -> String?
+    private let keyProvider: () -> P256.Signing.PrivateKey?
     private let transport: ((URLRequest) async throws -> (Data, URLResponse))?
     init(defaults: UserDefaults = .standard, startBackgroundTasks: Bool = true,
          collectMetadata: @escaping () -> Collection = { Metadata.collect() },
-         tokenProvider: @escaping () -> String? = { Credential.load() },
+         keyProvider: @escaping () -> P256.Signing.PrivateKey? = { Credential.load() },
          transport: ((URLRequest) async throws -> (Data, URLResponse))? = nil) {
         self.defaults = defaults; self.collectMetadata = collectMetadata
-        self.tokenProvider = tokenProvider; self.transport = transport
+        self.keyProvider = keyProvider; self.transport = transport
         enabled = defaults.bool(forKey: "syncEnabled"); includeTitles = defaults.bool(forKey: "includeTitles")
         endpoint = defaults.string(forKey: "syncEndpoint") ?? ""; draftEndpoint = endpoint
         lastSync = defaults.object(forKey: "lastSync") as? Date; lastCount = defaults.integer(forKey: "lastCount")
@@ -76,9 +75,8 @@ enum Spacing {
     func beginSettings() { pause(); draftEndpoint = endpoint; showSettings = true }
     func saveConnection() {
         guard Self.syncURL(draftEndpoint) != nil else { errorMessage = "HTTPSの /api/sync URLを指定してください"; return }
-        guard tokenInput.count >= 32 else { errorMessage = "同期トークンは32文字以上必要です"; return }
         do {
-            try Credential.save(tokenInput); tokenInput = ""; endpoint = draftEndpoint; defaults.set(endpoint, forKey: "syncEndpoint")
+            _ = try Credential.provision(); endpoint = draftEndpoint; defaults.set(endpoint, forKey: "syncEndpoint")
             digest = nil; errorMessage = nil; pause(); showSettings = false
         } catch { errorMessage = "キーチェーンへ保存できませんでした" }
     }
@@ -93,7 +91,7 @@ enum Spacing {
         busy = true; errorMessage = nil
         defer { busy = false }
         guard await collect(), enabled, !Task.isCancelled else { return }
-        guard let url = Self.syncURL(endpoint), let token = tokenProvider(), token.count >= 32 else { errorMessage = "同期先・キーチェーンのトークンを確認してください"; status = "接続設定が必要"; return }
+        guard let url = Self.syncURL(endpoint), let key = keyProvider() else { errorMessage = "同期先・キーチェーンの署名鍵を確認してください"; status = "接続設定が必要"; return }
         do {
             let prepared = Metadata.prepared(snapshot, includeTitles: includeTitles)
             let encoder = JSONEncoder(); encoder.outputFormatting = [.sortedKeys]
@@ -103,7 +101,7 @@ enum Spacing {
             if nextDigest == digest { status = "変更なし・同期待機中"; return }
             status = "\(prepared.sessions.count)件を送信中"
             var request = URLRequest(url: url); request.httpMethod = "PUT"; request.httpBody = body; request.timeoutInterval = 30
-            request.setValue("application/json", forHTTPHeaderField: "Content-Type"); request.setValue("Bearer " + token, forHTTPHeaderField: "Authorization")
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type"); try Credential.sign(&request, body: body, key: key)
             let (data, response) = try await (transport != nil ? transport!(request) : session.data(for: request))
             try Task.checkCancellation()
             guard let http = response as? HTTPURLResponse, http.statusCode == 200, let json = try JSONSerialization.jsonObject(with: data) as? [String: Any], json["ok"] as? Bool == true, json["count"] as? Int == prepared.sessions.count else { errorMessage = "サーバーが送信を受け付けませんでした"; status = "送信失敗"; return }
@@ -130,6 +128,12 @@ enum Spacing {
 @main struct SessionCalendarApp: App {
     @StateObject private var model: AppModel
     init() {
+        if CommandLine.arguments.contains("--probe-empty-sync") { EmptySyncProbe.run() }
+        if CommandLine.arguments.contains("--provision-key") {
+            DispatchQueue.global().asyncAfter(deadline: .now()+15) { fputs("Keychain provisioning exceeded 15s; no prompt was accepted\n",stderr); exit(2) }
+            do { print(try Credential.provision()); exit(0) }
+            catch { fputs("Keychain provisioning failed without interaction: \(error)\n", stderr); exit(1) }
+        }
         if CommandLine.arguments.contains("--self-test") { BundleSelfTest.run() }
         _model = StateObject(wrappedValue: AppModel())
     }
@@ -172,8 +176,7 @@ struct Dashboard: View {
             if model.showSettings {
                 VStack(alignment: .leading, spacing: Spacing.gap) {
                     TextField("https://<host>/api/sync", text: $model.draftEndpoint).textFieldStyle(.roundedBorder).accessibilityLabel("同期先URL")
-                    SecureField("同期専用トークン", text: $model.tokenInput).textFieldStyle(.roundedBorder)
-                    Button("接続設定をキーチェーンに保存") { model.saveConnection() }
+                    Button("接続設定・Mac専用署名鍵を保存") { model.saveConnection() }
                 }
             }
             Divider()

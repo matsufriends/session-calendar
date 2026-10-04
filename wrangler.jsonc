@@ -1,12 +1,48 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "session-calendar",
+  "account_id": "8270b61b66b888de43345f8e8be14366",
   "main": "cloud/worker.mjs",
   "compatibility_date": "2026-10-03",
   "workers_dev": false,
   "preview_urls": false,
-  "assets": { "directory": "cloud/public", "binding": "ASSETS", "run_worker_first": true },
-  "vars": { "ACCESS_TEAM_DOMAIN": "", "ACCESS_AUD": "", "VIEWER_EMAIL": "" }
-  // After approval, bind a dedicated namespace as SESSIONS. No automatic resource provisioning.
-  // SYNC_TOKEN is a Worker secret, never a var or committed file.
+  "assets": {
+    "directory": "cloud/public",
+    "binding": "ASSETS",
+    "run_worker_first": true
+  },
+  "routes": [
+    {
+      "pattern": "session-calendar.matsufriends.com",
+      "custom_domain": true
+    },
+    {
+      "pattern": "session-calendar-sync.matsufriends.com",
+      "custom_domain": true
+    }
+  ],
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "SYNC_STORE",
+        "class_name": "SyncStore"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": [
+        "SyncStore"
+      ]
+    }
+  ],
+  "vars": {
+    "ACCESS_TEAM_DOMAIN": "tsukumistudio.cloudflareaccess.com",
+    "ACCESS_AUD": "7f0ac61463739cf522c397f574505f105007ff49c334c8f106737a2d512c9ab5",
+    "VIEWER_EMAIL": "pikapikan0526@gmail.com",
+    "VIEWER_ORIGIN": "https://session-calendar.matsufriends.com",
+    "SYNC_ORIGIN": "https://session-calendar-sync.matsufriends.com",
+    "SYNC_PUBLIC_KEY": "0447784cde5c9e07abb63f19e39489a61f1c71dd56a5314c17c9d1b542fea70c6b09d38d1c046a83b4af93ec357a7d816c3d67010e62a4caaec611170f3b7bfb6f"
+  }
 }

@@ -43,10 +43,12 @@ zsh build-mac.sh
 dist/SessionCalendar.app/Contents/MacOS/SessionCalendar --self-test
 ```
 
-`--self-test` は人工データと同梱HTMLだけを検査し、履歴・Keychain・ネットワークを使用せず終了します。通常起動するとローカル履歴を読みます。初回は同期が無効で、ユーザーが設定した同期先とKeychainの資格情報を使用して有効にした場合、5分ごとにメタデータだけを送ります。「停止」で自動同期を止められます。明示タイトルの送信は初期状態で無効です。ログイン時起動はメニュー操作で登録します。
+`--self-test` は人工データと同梱HTMLだけを検査し、履歴・Keychain・ネットワークを使用せず終了します。通常起動するとローカル履歴を読みます。初回は同期が無効で、ユーザーが設定した同期先とKeychainの署名鍵を使用して有効にした場合、5分ごとにメタデータだけを送ります。「停止」で自動同期を止められます。明示タイトルの送信は初期状態で無効です。ログイン時起動はメニュー操作で登録します。
 
-現在の同期方式は専用Bearer tokenです。新しい秘密値を外部へ登録する工程は別途承認してから行います。サーバーのAccess設定と未認証拒否を確認するまで実データ同期を開始しないでください。クラウド構成は [CLOUD_SYNC.md](CLOUD_SYNC.md) を参照してください。
+同期方式はP-256署名です。秘密鍵はMac Keychainにだけ保存し、サーバーへは公開鍵だけを登録します。サーバーのAccess設定と未認証拒否を確認するまで実データ同期を開始しないでください。クラウド構成は [CLOUD_SYNC.md](CLOUD_SYNC.md) を参照してください。
 
 通常のローカルビルドはad-hoc署名です。`SIGN_IDENTITY`を指定した署名や公証は別工程で、配布可能なDeveloper ID署名・公証をこのビルドだけでは保証しません。`UNIVERSAL=1 zsh build-mac.sh` で両アーキテクチャをビルドします。
 
 Homebrew cask候補は `packaging/session-calendar.rb.in` です。公開先が確定した後、`python3 scripts/make_cask.py --url <archive-url>` でローカルのZIPからSHA256を設定します。公開releaseとtap更新はまだ行っていません。
+
+`--provision-key` は履歴を読まず専用署名鍵をKeychainへ作成し、公開鍵だけを標準出力へ返します。既存鍵を読み取れない場合は上書きせず失敗します。`--probe-empty-sync` は指定済みの専用ホストへ空snapshotだけを送り、再送・閲覧・偽署名の拒否を検査します。15秒で終了し、権限ダイアログは操作しません。Keychainのアクセス許可が必要な環境では、ユーザーによる確認が必要です。

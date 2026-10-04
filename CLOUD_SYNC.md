@@ -1,42 +1,43 @@
-# Cloudflare同期（実装準備済み・未稼働）
+# Cloudflare同期
 
-ローカルアプリは従来通り `python3 app.py` で動作します。クラウド側は独立したWorkerと専用KVに同期済みメタデータを置く構成です。認証設定・リソース作成・実履歴送信・OS自動起動はまだ行っていません。
+閲覧: https://session-calendar.matsufriends.com/ 。本人メールだけを許可するCloudflare Accessの後段で、WorkerもJWT署名・issuer・audience・期限・emailを検証します。未設定時は拒否します。
 
-## 構成
+同期: https://session-calendar-sync.matsufriends.com/api/sync 。PUT専用です。このホストの閲覧ルートはJWTや署名を付けても拒否します。同期署名は閲覧権限を与えません。
 
-- `cloud/worker.mjs`: `/` と `/api/sessions` はCloudflare Access JWTの署名、issuer、audience、期限、本人emailを検証。設定が欠けると拒否。
-- `/api/sync`: PUTのみ、別の書込専用Bearer tokenが必要。閲覧JWTで書き込めず、同期tokenでは閲覧できません。2MiB・20,000件上限、未知フィールド・本文・絶対projectパス・重複ID・不明でない終了日時を拒否。
-- `sync.py`: 既存ローカル抽出処理を再利用。送信するのはID、tool、開始・最後の記録、終了null、project basename、titleのみ。本文・cwd・警告詳細は送信しません。タイトルは既定でID表示に置換、`--include-titles`を指定した場合だけ明示タイトルを送ります。タイトルやproject名にも機密情報が含まれ得ます。
-- 手動送信 `--send`、5分ごとの変更時送信 `--send --watch`。再起動後の最初の送信はフルsnapshot。リダイレクトは拒否。通信はHTTPSのみ。失敗時に内容・URL・秘密をログへ出しません。snapshotはローカルファイル保存しません。
-- KVは専用namespaceの` snapshot `相当の固定1キー。最後のsnapshotを上書きし、Mac停止中も閲覧可能。KVは結果整合性のため更新反映に遅延があり得ます。画面に最終同期日時を表示します。
-- `scripts/build_cloud.py`: 元のHTMLだけから公開用assetを生成。生成先はignore対象。履歴や画像をコピーしません。
-- `wrangler.jsonc`: workers.devとpreview URLは初期状態で無効。秘密をvarsに置きません。KV自動作成も設定していません。
+## 署名プロトコル
 
-## ローカル検証
+Mac KeychainのP-256秘密鍵でSHA-256/ECDSA署名を作ります。秘密鍵をサーバーへ送る工程はありません。Workerへ登録する`SYNC_PUBLIC_KEY`は130文字の小文字hex（非圧縮X9.63公開鍵）です。
 
-```sh
-npm ci
-npm test
-npm run build
-WRANGLER_SEND_METRICS=false WRANGLER_LOG_PATH=/tmp/session-calendar-wrangler.log npm run dry-run
-python3 sync.py  # dry-run。送信しない・本文やタイトルを出力しない
+署名対象は次の7行を改行で結合したUTF-8です。末尾改行はありません。
+
+```
+SESSION-CALENDAR-V1
+PUT
+<HTTPS origin>
+/api/sync
+<Unix秒>
+<32 random bytesの小文字hex>
+<body bytesのSHA-256小文字hex>
 ```
 
-テストは空データと人工fixtureだけを使います。実データ送信を伴いません。
+ヘッダーは`X-Sync-Timestamp`、`X-Sync-Nonce`、`X-Sync-Signature`（P1363 raw 64-byte署名の小文字hex）。サーバーは時刻差300秒以内、正確な送信先origin/path、本文hash、登録公開鍵を検証します。Authorization/Bearerは受け付けません。
 
-## 稼働前に必要な設定
+単一のSQLite Durable Object `SyncStore`が、nonce消費とsnapshot保存を1トランザクションで行います。再使用nonceは409。期限切れnonceを除去し、有効nonceが256個ある場合は429。KVの結果整合性をリプレイ防止には使いません。保存は最新snapshotのみです。
 
-1. ユーザーが送信範囲（titleを含むか）、閲覧本人email、専用credential、継続同期の登録を確認。
-2. Cloudflare Accessに対象hostnameのアプリを作成。閲覧は本人のみ。同期パスはブラウザー用Accessでブロックしない専用設定が必要（Workerの書込token認証は必須のまま）。既存Accessがない場合はチーム設定・ログイン方式も必要。
-3. 専用KVを作成し `SESSIONS` bindingを追加。チームdomain、Access audience、本人emailをWorker varsへ設定。同期tokenは十分なランダム値を安全な入力経路でWorker secretへ保存し、同じ値をMacの保護された保存先へ置く。チャット、CLI引数、ソース、Git、ログへ書かない。
-4. 保護されたhostnameで空状態をデプロイ。workers.dev/preview等の別入口も検査。未認証のUI/API拒否、誤ったtoken拒否、本人ログインと空fixtureで成功を確認。
-5. その後、Macに `SESSION_SYNC_URL=https://<host>/api/sync` と `SESSION_SYNC_TOKEN` を安全に渡し、明示許可した範囲の初回送信。必要な場合だけLaunchAgentを登録。
+## 送信データ
 
-このコードは認証設定やリソースを自動作成しません。同期を止めてもサーバーに最後のメタデータは残るため、廃止時は専用snapshotとcredentialを削除する必要があります。
+2MiB・20,000件上限。未知フィールド、本文、絶対projectパス、重複ID、終了日時（null以外）を拒否します。ID・tool・開始/最後の記録・終了null・project basename・titleだけを送り、明示タイトルは初期状態で匿名化します。
+
+Macメニューバーアプリは初回同期無効、5分ごとの変更時送信、HTTPSのみ、redirect拒否。「停止」で継続同期を止めます。Python `sync.py`はdry-run専用にし、`--send`を拒否します。旧Bearer経路はありません。
+
+## 検証と運用
+
+`npm test`と`swift test --package-path native`は人工fixtureのみ。`--self-test`は履歴/Keychain/通信なし。`--provision-key`は公開鍵だけを出力。`--probe-empty-sync`は実履歴を読まず空データの送信・リプレイ拒否・閲覧拒否・偽署名拒否を検査します。Keychain UIは許可せず、検査全体に15秒期限を設けます。
+
+workers.devとpreview URLを無効化し、assetsはWorkerを先に通します。本人ログインと保護確認が完了するまで実履歴を送らないでください。同期を停止しても最後のsnapshotは残ります。廃止時は専用Durable Objectのsnapshot/nonceとMac専用鍵を削除します。
 
 ## 公式資料
 
 - [Access JWT検証](https://developers.cloudflare.com/cloudflare-one/access-controls/applications/http-apps/authorization-cookie/validating-json/)
-- [Worker assets binding](https://developers.cloudflare.com/workers/static-assets/binding/)
-- [Worker secrets](https://developers.cloudflare.com/workers/configuration/secrets/)
-- [Workers / KV料金](https://developers.cloudflare.com/workers/platform/pricing/)
+- [Durable Object transaction](https://developers.cloudflare.com/durable-objects/api/legacy-kv-storage-api/)
+- [Worker custom domains](https://developers.cloudflare.com/workers/configuration/routing/custom-domains/)

@@ -18,14 +18,52 @@ export async function viewerAuthorized(request, env, verificationKey = null) {
     return typeof payload.email === 'string' && payload.email.toLowerCase() === env.VIEWER_EMAIL.toLowerCase();
   } catch { return false; }
 }
-export async function writerAuthorized(request, env) {
-  if (typeof env.SYNC_TOKEN !== 'string' || env.SYNC_TOKEN.length < 32) return false;
-  const supplied = request.headers.get('Authorization');
-  if (!supplied?.startsWith('Bearer ') || supplied.length > 1024) return false;
-  const hash = async value => new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value)));
-  const [a,b] = await Promise.all([hash(supplied.slice(7)), hash(env.SYNC_TOKEN)]);
-  let diff = 0; for (let i=0;i<a.length;i++) diff |= a[i]^b[i];
-  return diff === 0;
+const encoder = new TextEncoder();
+const hex = bytes => [...new Uint8Array(bytes)].map(b=>b.toString(16).padStart(2,'0')).join('');
+export async function writerAuthorized(request, env, bytes, now = Date.now()) {
+  try {
+    const url=new URL(request.url);
+    if (request.method !== 'PUT' || url.pathname !== '/api/sync' || url.search || url.protocol!=='https:' || !env.SYNC_ORIGIN || url.origin !== env.SYNC_ORIGIN) return null;
+    if (request.headers.has('Authorization')) return null;
+    const stamp=request.headers.get('X-Sync-Timestamp'), nonce=request.headers.get('X-Sync-Nonce'), signature=request.headers.get('X-Sync-Signature');
+    if (!/^\d{10}$/.test(stamp || '') || Math.abs(now/1000-Number(stamp))>300 || !/^[a-f0-9]{64}$/.test(nonce || '') || !/^[a-f0-9]{128}$/.test(signature || '')) return null;
+    const raw=Uint8Array.from((env.SYNC_PUBLIC_KEY || '').match(/.{2}/g) || [], x=>parseInt(x,16));
+    if (!/^[a-f0-9]{130}$/.test(env.SYNC_PUBLIC_KEY || '') || raw[0]!==4) return null;
+    const key=await crypto.subtle.importKey('raw',raw,{name:'ECDSA',namedCurve:'P-256'},false,['verify']);
+    const bodyHash=hex(await crypto.subtle.digest('SHA-256',bytes));
+    const canonical=['SESSION-CALENDAR-V1','PUT',env.SYNC_ORIGIN,'/api/sync',stamp,nonce,bodyHash].join('\n');
+    const sig=Uint8Array.from(signature.match(/.{2}/g),x=>parseInt(x,16));
+    return await crypto.subtle.verify({name:'ECDSA',hash:'SHA-256'},key,sig,encoder.encode(canonical)) ? {nonce,expires:Number(stamp)+300} : null;
+  } catch { return null; }
+}
+// A single Durable Object atomically consumes nonces and stores the snapshot.
+// KV eventual consistency is not used for replay protection.
+export class SyncStore {
+  constructor(state) { this.state=state; }
+  async fetch(request) {
+    if (request.method==='GET') return this.state.storage.transaction(async tx=> {
+      const count=await tx.get('snapshot-chunks');
+      if(!count)return reply({sessions:[],warnings:['まだ同期されていません'],timezone:'Asia/Tokyo',synced_at:null});
+      const parts=[];for(let i=0;i<count;i++)parts.push(await tx.get('snapshot:'+i));
+      return reply(JSON.parse(parts.join('')));
+    });
+    if (request.method!=='PUT') return reply({error:'method'},405);
+    const {snapshot,nonce,expires}=await request.json();
+    return this.state.storage.transaction(async tx=> {
+      const now=Math.floor(Date.now()/1000);
+      const used=await tx.list({prefix:'nonce:'});
+      for(const [key,expiry] of used) if(expiry<now) await tx.delete(key);
+      if (expires<now || await tx.get('nonce:'+nonce)) return reply({error:'replay'},409);
+      if ([...used.values()].filter(expiry=>expiry>=now).length>=256) return reply({error:'rate limit'},429);
+      await tx.put('nonce:'+nonce,expires);
+      const serialized=JSON.stringify(snapshot),count=Math.ceil(serialized.length/32768);
+      const oldCount=await tx.get('snapshot-chunks') || 0;
+      for(let i=0;i<count;i++)await tx.put('snapshot:'+i,serialized.slice(i*32768,(i+1)*32768));
+      for(let i=count;i<oldCount;i++)await tx.delete('snapshot:'+i);
+      await tx.put('snapshot-chunks',count);
+      return reply({ok:true,count:snapshot.sessions.length});
+    });
+  }
 }
 function plainObject(value) { return value !== null && typeof value === 'object' && !Array.isArray(value); }
 function exact(value, keys) { return plainObject(value) && Object.keys(value).length === keys.length && keys.every(k=>Object.hasOwn(value,k)); }
@@ -46,28 +84,28 @@ async function readLimited(request) {
   try { while(true){const {value,done}=await reader.read();if(done)break;size+=value.length;if(size>MAX_BYTES)throw Error('large');chunks.push(value);} }
   finally { await reader.cancel(); }
   const bytes=new Uint8Array(size);let offset=0;for(const chunk of chunks){bytes.set(chunk,offset);offset+=chunk.length;}
-  return JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(bytes));
+  return bytes;
 }
 export default {
   async fetch(request, env) {
     const url=new URL(request.url);
     if(url.pathname==='/api/sync') {
       if(request.method!=='PUT')return reply({error:'method'},405);
-      if(!await writerAuthorized(request,env))return reply({error:'unauthorized'},401);
-      if(!env.SESSIONS)return reply({error:'storage unavailable'},503);
       if(!request.headers.get('Content-Type')?.startsWith('application/json'))return reply({error:'content type'},415);
-      let data;try {data=await readLimited(request);}catch{return reply({error:'invalid or oversized payload'},400);}
+      let bytes;try {bytes=await readLimited(request);}catch{return reply({error:'invalid or oversized payload'},400);}
+      const auth=await writerAuthorized(request,env,bytes);if(!auth)return reply({error:'unauthorized'},401);
+      let data;try {data=JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(bytes));}catch{return reply({error:'invalid metadata'},400);}
       if(!validateSnapshot(data))return reply({error:'invalid metadata'},400);
+      if(!env.SYNC_STORE)return reply({error:'storage unavailable'},503);
       const snapshot={...data,warnings:[],synced_at:new Date().toISOString()};
-      await env.SESSIONS.put('snapshot',JSON.stringify(snapshot));
-      return reply({ok:true,count:data.sessions.length});
+      return env.SYNC_STORE.get(env.SYNC_STORE.idFromName('owner')).fetch('https://store.internal/',{method:'PUT',body:JSON.stringify({snapshot,...auth})});
     }
+    if(url.origin!==env.VIEWER_ORIGIN)return reply({error:'unauthorized'},401);
     if(!await viewerAuthorized(request,env))return reply({error:'unauthorized'},401);
     if(request.method!=='GET')return reply({error:'method'},405);
     if(url.pathname==='/api/sessions') {
-      if(!env.SESSIONS)return reply({error:'storage unavailable'},503);
-      const data=await env.SESSIONS.get('snapshot','json');
-      return reply(data || {sessions:[],warnings:['まだ同期されていません'],timezone:'Asia/Tokyo',synced_at:null});
+      if(!env.SYNC_STORE)return reply({error:'storage unavailable'},503);
+      return env.SYNC_STORE.get(env.SYNC_STORE.idFromName('owner')).fetch('https://store.internal/');
     }
     if(url.pathname!=='/')return reply({error:'not found'},404);
     if(!env.ASSETS)return reply({error:'assets unavailable'},503);

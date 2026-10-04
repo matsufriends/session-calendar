@@ -1,4 +1,5 @@
 import XCTest
+import CryptoKit
 @testable import SessionCalendar
 @MainActor final class SyncStateTests: XCTestCase {
     func fixture(_ code: Int = 200, failures: Int = 0) -> (AppModel, UserDefaults, String) {
@@ -6,7 +7,7 @@ import XCTest
         let defaults = UserDefaults(suiteName: name)!
         let model = AppModel(defaults: defaults, startBackgroundTasks: false,
           collectMetadata: { Collection(snapshot: Snapshot(sessions: [SessionRecord(id: "fixture", tool: "Codex", start: "2026-10-03T01:00:00Z", last_activity: nil, project: "/tmp/Private", title: "private title")]), failures: failures) },
-          tokenProvider: { String(repeating: "f", count: 32) },
+          keyProvider: { P256.Signing.PrivateKey() },
           transport: { req in
             let payload = try JSONSerialization.jsonObject(with: req.httpBody!) as! [String: Any]
             let rows = payload["sessions"] as! [[String: Any]]
@@ -45,7 +46,7 @@ import XCTest
         var requests = 0
         let m = AppModel(defaults:d,startBackgroundTasks:false,
             collectMetadata:{ Collection(snapshot:Snapshot(sessions:[]),failures:0) },
-            tokenProvider:{ String(repeating:"f",count:32) },
+            keyProvider:{ P256.Signing.PrivateKey() },
             transport:{ req in
                 requests += 1
                 try await Task.sleep(for:.milliseconds(30))
