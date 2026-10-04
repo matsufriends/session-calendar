@@ -1,0 +1,55 @@
+name: Check
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python3.12 -m venv .venv
+      - run: .venv/bin/python -m pip install -r requirements.txt
+      - run: npm ci
+      - run: PATH="$PWD/.venv/bin:$PATH" npm test
+      - run: npm run build
+  mac:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python3.12 -m venv .venv
+      - run: .venv/bin/python -m pip install -r requirements.txt
+      - run: swift test --package-path native
+        env:
+          TITLE_FIXTURE_SNAPSHOT: ${{ runner.temp }}/native-title-snapshot.json
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: node scripts/check_title_pipeline.mjs "$TITLE_FIXTURE_SNAPSHOT"
+        env:
+          TITLE_FIXTURE_SNAPSHOT: ${{ runner.temp }}/native-title-snapshot.json
+      - run: .venv/bin/python scripts/check_title_parity.py "$TITLE_FIXTURE_SNAPSHOT"
+        env:
+          TITLE_FIXTURE_SNAPSHOT: ${{ runner.temp }}/native-title-snapshot.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: synthetic-title-fixtures
+          path: ${{ runner.temp }}/native-title-snapshot.json*
+      - run: zsh build-mac.sh
+      - run: dist/SessionCalendar.app/Contents/MacOS/SessionCalendar --self-test

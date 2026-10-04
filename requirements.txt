@@ -1,0 +1,2 @@
+# \X implements Unicode grapheme boundaries; this pin supports the existing Python 3.9 baseline.
+regex==2024.11.6

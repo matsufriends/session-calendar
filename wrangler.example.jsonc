@@ -1,0 +1,48 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "session-calendar",
+  "account_id": "<CLOUDFLARE_ACCOUNT_ID>",
+  "main": "cloud/worker.mjs",
+  "compatibility_date": "2026-10-03",
+  "workers_dev": false,
+  "preview_urls": false,
+  "assets": {
+    "directory": "cloud/public",
+    "binding": "ASSETS",
+    "run_worker_first": true
+  },
+  "routes": [
+    {
+      "pattern": "<VIEWER_HOST>",
+      "custom_domain": true
+    },
+    {
+      "pattern": "<SYNC_HOST>",
+      "custom_domain": true
+    }
+  ],
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "SYNC_STORE",
+        "class_name": "SyncStore"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": [
+        "SyncStore"
+      ]
+    }
+  ],
+  "vars": {
+    "ACCESS_TEAM_DOMAIN": "<TEAM>.cloudflareaccess.com",
+    "ACCESS_AUD": "<ACCESS_APPLICATION_AUD>",
+    "VIEWER_EMAIL": "<YOUR_EMAIL>",
+    "VIEWER_ORIGIN": "https://<VIEWER_HOST>",
+    "SYNC_ORIGIN": "https://<SYNC_HOST>",
+    "SYNC_PUBLIC_KEY": "<SessionCalendar --provision-key の出力>"
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "name": "session-calendar",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "python3 scripts/build_cloud.py",
+    "test": "node --test tests/*.test.mjs && python3 -m unittest discover -s tests",
+    "dry-run": "npm run build && wrangler deploy --dry-run",
+    "deploy": "npm run build && wrangler deploy"
+  },
+  "dependencies": {
+    "jose": "6.2.12"
+  },
+  "devDependencies": {
+    "wrangler": "4.147.0"
+  }
+}

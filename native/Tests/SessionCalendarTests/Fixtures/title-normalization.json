@@ -1,0 +1,20 @@
+[
+  {"name":"emoji scalar boundary","input":{"repeat":"\ud83d\ude00","count":151},"expected":{"repeat":"\ud83d\ude00","count":150}},
+  {"name":"combining mark is preserved away from the boundary","input":"Cafe\u0301","expected":"Cafe\u0301"},
+  {"name":"newlines and C0 controls become spaces","input":"first\nsecond\u0000third\tend","expected":"first second third end"},
+  {"name":"exact UTF-16 limit","input":{"repeat":"a","count":300},"expected":{"repeat":"a","count":300}},
+  {"name":"one unit over limit","input":{"repeat":"a","count":301},"expected":{"repeat":"a","count":300}},
+  {"name":"combining cluster cannot be split at the limit","input":{"repeat":"a","count":299,"suffix":"e\u0301z"},"expected":{"repeat":"a","count":299}},
+  {"name":"empty title has a valid fallback","input":"","expected":"\u7121\u984c"},
+  {"name":"escaped UTF-16 surrogate pair","input":"\ud83d\ude00","expected":"\ud83d\ude00"},
+  {"name":"C0 U+0001 becomes a space","input":"Fixture\u0001task","expected":"Fixture task"},
+  {"name":"all C0 become spaces rather than empty","input":"\u0000\u0001\t\r\n\u001f","expected":"      "},
+  {"name":"emoji ZWJ cluster fits exactly","input":{"repeat":"a","count":295,"suffix":"\ud83d\udc69\u200d\ud83d\udcbbx"},"expected":{"repeat":"a","count":295,"suffix":"\ud83d\udc69\u200d\ud83d\udcbb"}},
+  {"name":"emoji ZWJ cluster cannot split","input":{"repeat":"a","count":296,"suffix":"\ud83d\udc69\u200d\ud83d\udcbb"},"expected":{"repeat":"a","count":296}},
+  {"name":"skin tone cluster cannot split","input":{"repeat":"a","count":297,"suffix":"\ud83d\udc4d\ud83c\udffd"},"expected":{"repeat":"a","count":297}},
+  {"name":"regional indicator flag cannot split","input":{"repeat":"a","count":297,"suffix":"\ud83c\uddef\ud83c\uddf5"},"expected":{"repeat":"a","count":297}},
+  {"name":"oversized first grapheme produces empty fallback","input":{"repeat":"e","count":1,"suffix":"\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301"},"expected":"\u7121\u984c"},
+  {"name":"Hangul cluster cannot split","input":{"repeat":"a","count":298,"suffix":"\u1100\u1161\u11a8"},"expected":{"repeat":"a","count":298}},
+  {"name":"spacing mark cannot split","input":{"repeat":"a","count":299,"suffix":"\u0915\u093e"},"expected":{"repeat":"a","count":299}},
+  {"name":"prepend character cannot split","input":{"repeat":"a","count":299,"suffix":"\u0600b"},"expected":{"repeat":"a","count":299}}
+]
