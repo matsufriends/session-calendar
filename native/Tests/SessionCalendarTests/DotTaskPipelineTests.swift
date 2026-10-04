@@ -3,7 +3,7 @@ import XCTest
 
 final class DotTaskPipelineTests: XCTestCase {
     private func fixture(_ name: String) throws -> Data {
-        try Data(contentsOf: XCTUnwrap(Bundle.module.url(forResource: name, withExtension: "json")))
+        try Data(contentsOf: XCTUnwrap(Bundle.module.url(forResource: name, withExtension: "json", subdirectory: "Fixtures")))
     }
 
     func testNativeCollectorBuildsAnonymousWorkerPayloadAndRetainsProvenance() throws {
