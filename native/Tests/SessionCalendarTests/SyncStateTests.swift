@@ -7,7 +7,7 @@ import CryptoKit
         let defaults = UserDefaults(suiteName: name)!
         var nonces=Set<String>()
         let model = AppModel(defaults: defaults, startBackgroundTasks: false,
-          collectMetadata: { Collection(snapshot: Snapshot(sessions: [SessionRecord(id: "fixture", tool: "Codex", start: "2026-10-03T01:00:00Z", last_activity: nil, project: "/tmp/Private", title: "private title")]), failures: failures) },
+          collectMetadata: { _ in Collection(snapshot: Snapshot(sessions: [SessionRecord(id: "fixture", tool: "Codex", start: "2026-10-03T01:00:00Z", last_activity: nil, project: "/tmp/Private", title: "private title")]), failures: failures) },
           keyProvider: { P256.Signing.PrivateKey() },
           keyAuthorizer: { P256.Signing.PrivateKey() },
           transport: { req in
@@ -61,7 +61,7 @@ import CryptoKit
         var requests = 0, authorizations=0
         var nonces=Set<String>()
         let m = AppModel(defaults:d,startBackgroundTasks:false,
-            collectMetadata:{ Collection(snapshot:Snapshot(sessions:[]),failures:0) },
+            collectMetadata:{ _ in Collection(snapshot:Snapshot(sessions:[]),failures:0) },
             keyProvider:{ XCTFail("Background key reread");return nil },
             keyAuthorizer:{ authorizations += 1;return P256.Signing.PrivateKey() },
             transport:{ req in

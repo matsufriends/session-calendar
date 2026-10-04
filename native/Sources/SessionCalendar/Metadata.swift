@@ -8,9 +8,22 @@ struct SessionRecord: Codable, Equatable {
     var end: String? = nil
     var project: String
     var title: String
-    enum CodingKeys: String, CodingKey { case id, tool, start, last_activity, end, project, title }
+    var source: String? = nil
+    var task_registered_at: String? = nil
+    var latest_turn_status: String? = nil
+    var snapshot_observed_at: String? = nil
+    enum CodingKeys: String, CodingKey { case id, tool, start, last_activity, end, project, title, source, task_registered_at, latest_turn_status, snapshot_observed_at }
     func encode(to encoder: Encoder) throws {
         var c = encoder.container(keyedBy: CodingKeys.self)
+        if source == "dot-task" {
+            try c.encode(id, forKey: .id); try c.encode(source, forKey: .source); try c.encode(tool, forKey: .tool)
+            try c.encode(task_registered_at ?? start, forKey: .task_registered_at)
+            try c.encode(latest_turn_status ?? "unknown", forKey: .latest_turn_status)
+            if let snapshot_observed_at { try c.encode(snapshot_observed_at, forKey: .snapshot_observed_at) }
+            else { try c.encodeNil(forKey: .snapshot_observed_at) }
+            try c.encode(project, forKey: .project); try c.encode(title, forKey: .title)
+            return
+        }
         try c.encode(id, forKey: .id); try c.encode(tool, forKey: .tool); try c.encode(start, forKey: .start)
         if let last_activity { try c.encode(last_activity, forKey: .last_activity) } else { try c.encodeNil(forKey: .last_activity) }
         try c.encodeNil(forKey: .end); try c.encode(project, forKey: .project); try c.encode(title, forKey: .title)
@@ -59,11 +72,11 @@ enum Metadata {
     static func prepared(_ snapshot: Snapshot, includeTitles: Bool) -> Snapshot {
         Snapshot(sessions: snapshot.sessions.map { row in
             var s = row; s.project = projectLabel(s.project); s.end = nil
-            s.title = includeTitles ? String(s.title.prefix(300)) : "\(s.tool) セッション \(s.id.prefix(8))"
+            s.title = includeTitles ? String(s.title.prefix(300)) : s.source == "dot-task" ? "ChatGPT タスク \(s.id.suffix(8))" : "\(s.tool) セッション \(s.id.prefix(8))"
             return s
         })
     }
-    static func collect(home: URL = FileManager.default.homeDirectoryForCurrentUser) -> Collection {
+    static func collect(home: URL = FileManager.default.homeDirectoryForCurrentUser, dotTaskSnapshot: DotTaskSnapshot? = nil) -> Collection {
         var names: [String: [String: Any]] = [:], rows: [String: SessionRecord] = [:], failures = 0
         let index = home.appendingPathComponent(".codex/session_index.jsonl")
         if FileManager.default.fileExists(atPath: index.path) {
@@ -102,6 +115,20 @@ enum Metadata {
                 } catch { failures += 1 }
             }
         }
-        return Collection(snapshot: Snapshot(sessions: rows.values.sorted { $0.start > $1.start }), failures: failures)
+        var imported: [SessionRecord] = []
+        if let dotTaskSnapshot {
+            let localIDs = Set(rows.values.map(\.id))
+            let taskIDs = dotTaskSnapshot.tasks.map(\.id)
+            if taskIDs.count != Set(taskIDs).count || !localIDs.isDisjoint(with: taskIDs) { failures += 1 }
+            else {
+                imported = dotTaskSnapshot.tasks.map { task in
+                    SessionRecord(id: task.id, tool: "ChatGPT", start: task.attachedAt, last_activity: nil,
+                      project: task.project, title: task.title, source: "dot-task",
+                      task_registered_at: task.attachedAt, latest_turn_status: task.latestTurnStatus,
+                      snapshot_observed_at: dotTaskSnapshot.snapshotObservedAt)
+                }
+            }
+        }
+        return Collection(snapshot: Snapshot(sessions: (Array(rows.values) + imported).sorted { $0.start > $1.start }), failures: failures)
     }
 }

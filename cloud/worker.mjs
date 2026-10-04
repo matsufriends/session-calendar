@@ -76,7 +76,7 @@ export function validateSnapshot(data) {
     if (s?.source === 'dot-task') {
       if (!exact(s,['id','source','tool','task_registered_at','latest_turn_status','snapshot_observed_at','project','title']) ||
         !text(s.id,128) || !/^[A-Za-z0-9._-]+$/.test(s.id) || s.tool!=='ChatGPT' || !timestamp(s.task_registered_at) ||
-        !text(s.latest_turn_status,40) || !/^[A-Za-z0-9 _-]+$/.test(s.latest_turn_status) || !timestamp(s.snapshot_observed_at) ||
+        !text(s.latest_turn_status,40) || !/^[A-Za-z0-9 _-]+$/.test(s.latest_turn_status) || !(s.snapshot_observed_at===null || timestamp(s.snapshot_observed_at)) ||
         !text(s.project,200) || /[\\/]/.test(s.project) || !text(s.title,300)) return false;
       if (taskIds.has(s.id)) return false; taskIds.add(s.id); return true;
     }

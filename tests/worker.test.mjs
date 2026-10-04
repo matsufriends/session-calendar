@@ -11,6 +11,7 @@ test('snapshot allowlist rejects conversation, paths, invalid times, duplicates'
 });
 test('dot-task snapshot schema preserves source and rejects unknown fields or CLI ID collisions',()=>{
  assert.ok(validateSnapshot({...empty,sessions:[dotTask]}));
+ assert.ok(validateSnapshot({...empty,sessions:[{...dotTask,snapshot_observed_at:null}]}));
  assert.equal(validateSnapshot({...empty,sessions:[{...dotTask,conversation:'fixture secret'}]}),false);
  assert.equal(validateSnapshot({...empty,sessions:[{...dotTask,snapshot_observed_at:'invalid'}]}),false);
  assert.equal(validateSnapshot({...empty,sessions:[dotTask,{...record,id:dotTask.id}]}),false);

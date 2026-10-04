@@ -64,9 +64,20 @@ class DotTaskImportTests(unittest.TestCase):
     def test_missing_optional_title_and_project_use_safe_fallbacks(self):
         task = self.snapshot()['tasks'][0]
         del task['title']; del task['project']
-        record, = adapt_dot_snapshot({'tasks': [task]}, observed_at='2026-10-04T01:00:00Z')
+        record, = adapt_dot_snapshot({'tasks': [task]})
         self.assertEqual(record['title'], 'ChatGPT タスク e-task-1')
         self.assertEqual(record['project'], '不明')
+
+    def test_missing_source_observation_stays_unknown_across_reloads(self):
+        data = self.snapshot()
+        del data['snapshot_observed_at']
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'fixture.json'
+            path.write_text(json.dumps(data), encoding='utf-8')
+            first, = load_dot_snapshot(path)
+            second, = load_dot_snapshot(path)
+        self.assertIsNone(first['snapshot_observed_at'])
+        self.assertIsNone(second['snapshot_observed_at'])
 
 
 if __name__ == '__main__':

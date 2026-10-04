@@ -2,7 +2,7 @@
 """Local, read-only session metadata calendar. Standard library only."""
 import json, argparse, threading, time, re
 from pathlib import Path
-from datetime import datetime, timezone
+from datetime import datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 ROOT=Path(__file__).parent
 cache={'at':0,'data':None}
@@ -14,13 +14,12 @@ def _timestamp_parses(value):
     except ValueError: return False
 def _safe_text(value, maximum):
     return isinstance(value,str) and 0<len(value)<=maximum and not any(ord(c)<32 or ord(c)==127 for c in value)
-def adapt_dot_snapshot(data, occupied_ids=(), observed_at=None):
+def adapt_dot_snapshot(data, occupied_ids=()):
     """Keep only official, user-visible task metadata from an explicitly imported snapshot."""
     if not isinstance(data,dict) or not isinstance(data.get('tasks'),list) or len(data['tasks'])>20000:
         raise ValueError('snapshot must contain a tasks array')
-    observed=data.get('snapshot_observed_at',observed_at)
-    if observed is None: observed=datetime.now(timezone.utc).isoformat(timespec='seconds').replace('+00:00','Z')
-    if not valid_timestamp(observed): raise ValueError('invalid snapshot_observed_at')
+    observed=data.get('snapshot_observed_at')
+    if observed is not None and not valid_timestamp(observed): raise ValueError('invalid snapshot_observed_at')
     occupied=set(occupied_ids); seen=set(); result=[]
     for task in data['tasks']:
         if not isinstance(task,dict): raise ValueError('invalid task record')

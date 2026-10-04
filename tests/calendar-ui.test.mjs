@@ -11,10 +11,17 @@ test('current-time marker uses JST midnight and late-day boundaries',()=>{
  assert.equal(position('2026-10-04T14:59:00Z'),64+(23+59/60)*64);
 });
 test('privacy badge distinguishes anonymous format, explicit titles and no received data',()=>{
- const label=rows=>runInNewContext(definition('privacyLabel')+';privacyLabel()',{sessions:rows});
+ const label=rows=>runInNewContext(definition('anonymousTitle')+'\n'+definition('privacyLabel')+';privacyLabel()',{sessions:rows});
  assert.match(label([]),/同期データなし/);
  assert.match(label([{id:'fixture-1',tool:'Codex',title:'Codex セッション fixture-'}]),/匿名タイトル形式/);
  assert.match(label([{id:'fixture-1',tool:'Codex',title:'Fixture task'}]),/タイトルを含む/);
+});
+test('dot-task anonymous fallback is recognized as anonymous',()=>{
+ const anonymous=definition('anonymousTitle')+'\n'+definition('privacyLabel')+';({anonymousTitle,privacyLabel})';
+ const {anonymousTitle,privacyLabel}=runInNewContext(anonymous,{sessions:[{id:'fixture-task-1',source:'dot-task',tool:'ChatGPT',title:'ChatGPT タスク e-task-1'}]});
+ const task={id:'fixture-task-1',source:'dot-task',tool:'ChatGPT',title:'ChatGPT タスク e-task-1'};
+ assert.equal(anonymousTitle(task),true);
+ assert.match(privacyLabel(),/匿名タイトル形式/);
 });
 test('dot task UI uses registration markers, snapshot freshness and a distinct task link',()=>{
  const helpers=definition('eventAt')+'\n'+definition('statusLabel')+';({eventAt,statusLabel})';

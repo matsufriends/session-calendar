@@ -2,6 +2,7 @@ import SwiftUI
 import AppKit
 import CryptoKit
 import ServiceManagement
+import UniformTypeIdentifiers
 
 enum Spacing {
     static let edge: CGFloat = 24
@@ -13,12 +14,14 @@ enum Spacing {
     @Published var status = "ローカル履歴を確認中"
     @Published var codexCount = 0
     @Published var claudeCount = 0
+    @Published var dotTaskCount = 0
     @Published var enabled: Bool = false
     @Published var includeTitles: Bool = false
     @Published var endpoint: String = ""
     @Published var draftEndpoint: String = ""
     @Published var viewerEndpoint: String = "https://session-calendar.matsufriends.com/"
     @Published var showSettings = false
+    @Published var showDotImporter = false
     @Published var busy = false
     @Published var lastSync: Date? = nil
     @Published var lastCount: Int = 0
@@ -30,13 +33,15 @@ enum Spacing {
     private let noRedirect = NoRedirect()
     private lazy var session = URLSession(configuration: .ephemeral, delegate: noRedirect, delegateQueue: nil)
     private let defaults: UserDefaults
-    private let collectMetadata: () -> Collection
+    private var dotTaskSnapshot: DotTaskSnapshot?
+    private let collectMetadata: (DotTaskSnapshot?) -> Collection
     private var residentKey: P256.Signing.PrivateKey?
     private let keyAuthorizer: () -> P256.Signing.PrivateKey?
     private let keyProvider: () -> P256.Signing.PrivateKey?
     private let transport: ((URLRequest) async throws -> (Data, URLResponse))?
+    var hasDotTaskSnapshot: Bool { dotTaskSnapshot != nil }
     init(defaults: UserDefaults = .standard, startBackgroundTasks: Bool = true,
-         collectMetadata: @escaping () -> Collection = { Metadata.collect() },
+         collectMetadata: @escaping (DotTaskSnapshot?) -> Collection = { Metadata.collect(dotTaskSnapshot: $0) },
          keyProvider: @escaping () -> P256.Signing.PrivateKey? = { Credential.load() },
          keyAuthorizer: @escaping () -> P256.Signing.PrivateKey? = { Credential.loadForUserInitiatedProbe() },
          transport: ((URLRequest) async throws -> (Data, URLResponse))? = nil) {
@@ -45,6 +50,7 @@ enum Spacing {
         enabled = defaults.bool(forKey: "syncEnabled"); includeTitles = defaults.bool(forKey: "includeTitles")
         endpoint = defaults.string(forKey: "syncEndpoint") ?? ""; draftEndpoint = endpoint
         viewerEndpoint = defaults.string(forKey: "viewerEndpoint") ?? "https://session-calendar.matsufriends.com/"
+        if let data = defaults.data(forKey: "dotTaskSnapshot"), let imported = try? JSONDecoder().decode(DotTaskSnapshot.self, from: data) { dotTaskSnapshot = imported }
         lastSync = defaults.object(forKey: "lastSync") as? Date; lastCount = defaults.integer(forKey: "lastCount")
         if !startBackgroundTasks { return }
         Task {
@@ -68,16 +74,39 @@ enum Spacing {
     }
     @discardableResult private func collect() async -> Bool {
         let collector = collectMetadata
-        let result = await Task.detached(priority: .utility) { collector() }.value
+        let imported = dotTaskSnapshot
+        let result = await Task.detached(priority: .utility) { collector(imported) }.value
         snapshot = result.snapshot
         codexCount = snapshot.sessions.filter { $0.tool == "Codex" }.count
         claudeCount = snapshot.sessions.filter { $0.tool == "Claude" }.count
+        dotTaskCount = snapshot.sessions.filter { $0.source == "dot-task" }.count
         calendar.update(snapshot)
         if result.failures > 0 { errorMessage = "一部の履歴を読み取れません。送信を中止しました"; status = "読取失敗"; return false }
         status = enabled ? "同期待機中" : "送信は一時停止中"
         return true
     }
     func refresh() { Task { _ = await collect() } }
+    func importDotSnapshot(_ result: Result<[URL], Error>) {
+        guard case .success(let urls) = result, let url = urls.first else { return }
+        let accessed = url.startAccessingSecurityScopedResource()
+        defer { if accessed { url.stopAccessingSecurityScopedResource() } }
+        do {
+            let values = try url.resourceValues(forKeys: [.fileSizeKey])
+            guard (values.fileSize ?? 0) <= 2 * 1024 * 1024 else { throw DotTaskSnapshot.ImportError.tooLarge }
+            let imported = try DotTaskSnapshot.decode(Data(contentsOf: url))
+            let encoded = try JSONEncoder().encode(imported)
+            defaults.set(encoded, forKey: "dotTaskSnapshot")
+            dotTaskSnapshot = imported; digest = nil; errorMessage = nil
+            Task { if await collect(), enabled { syncNow() } }
+        } catch {
+            errorMessage = "dot-task snapshotを読み込めません。JSON・必須項目・ID重複を確認してください"
+        }
+    }
+    func clearDotSnapshot() {
+        defaults.removeObject(forKey: "dotTaskSnapshot")
+        dotTaskSnapshot = nil; dotTaskCount = 0; digest = nil
+        Task { if await collect(), enabled { syncNow() } }
+    }
     func pause() { enabled = false; defaults.set(false, forKey: "syncEnabled"); task?.cancel(); status = "送信は一時停止中" }
     func enable() {
         guard let url=Self.syncURL(endpoint) else { errorMessage="同期先URLが未設定です";showSettings=true;return }
@@ -193,6 +222,7 @@ struct Dashboard: View {
             HStack(spacing: Spacing.section) {
                 Label("Claude \(model.claudeCount)件", systemImage: "c.circle")
                 Label("Codex \(model.codexCount)件", systemImage: "terminal")
+                Label("タスク \(model.dotTaskCount)件", systemImage: "circle.dotted")
             }.font(.caption)
             Grid(alignment: .leading, horizontalSpacing: Spacing.panel, verticalSpacing: Spacing.gap) {
                 GridRow { Text("最終送信").foregroundStyle(.secondary); Text(model.dateLabel).monospacedDigit() }
@@ -216,6 +246,10 @@ struct Dashboard: View {
                 Button("履歴を再読取") { model.refresh() }.disabled(model.busy)
                 Button("接続設定") { model.beginSettings() }
             }
+            HStack(spacing: Spacing.gap) {
+                Button("dot task snapshotを読み込む") { model.showDotImporter = true }
+                if model.hasDotTaskSnapshot { Button("snapshotを解除") { model.clearDotSnapshot() } }
+            }
             if model.showSettings {
                 VStack(alignment: .leading, spacing: Spacing.gap) {
                     TextField("https://<host>/api/sync", text: $model.draftEndpoint).textFieldStyle(.roundedBorder).accessibilityLabel("同期先URL")
@@ -230,6 +264,8 @@ struct Dashboard: View {
                 Spacer()
                 Button("終了") { model.shutdown(); NSApplication.shared.terminate(nil) }
             }
-        }.padding(Spacing.edge).frame(width: 400)
+        }
+        .fileImporter(isPresented: $model.showDotImporter, allowedContentTypes: [.json], allowsMultipleSelection: false) { model.importDotSnapshot($0) }
+        .padding(Spacing.edge).frame(width: 400)
     }
 }

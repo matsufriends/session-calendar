@@ -50,7 +50,7 @@ dot cloud taskの正式な公開API接続は行わず、公式 `cloud_threads` �
 python3 app.py --dot-snapshot /path/to/task-snapshot.json
 ```
 
-タイトルとprojectは省略可能です。`snapshot_observed_at`を省略すると、ローカルで読み込んだ時刻を観測時刻として表示します。未知フィールドは保存・表示せず、本文や `latestTurn` のstatus以外の情報は取り込みません。既存CLI sessionとのID衝突、同一snapshot内の重複ID、必須項目欠落、不正JSONはsnapshot全体を拒否します。更新操作でファイルを読み直すと、同じtask IDの新snapshotが表示に反映されます。HTTPから任意ファイルを指定して読み取る機能はありません。
+メニューバーアプリでは「dot task snapshotを読み込む」から同じJSONをユーザーが選択します。検証後の許可項目だけをローカル設定に保存し、解除操作で取り込みを消せます。既存の同期をユーザーが開始済みの場合だけ、通常の署名付きmetadata同期に含めます。タイトルは既定で匿名化され、「タイトルも送信する」が有効な場合だけ明示タイトルを送信します。タイトルとprojectは省略可能です。`snapshot_observed_at`を省略すると、観測時刻は「不明」のままです。同じsnapshotを再読込しても観測時刻を新しく見せません。未知フィールドは保存・表示せず、本文や `latestTurn` のstatus以外の情報は取り込みません。既存CLI sessionとのID衝突、同一snapshot内の重複ID、必須項目欠落、不正JSONはsnapshot全体を拒否します。更新操作でファイルを読み直すと、同じtask IDの新snapshotが表示に反映されます。HTTPから任意ファイルを指定して読み取る機能はありません。
 
 カード位置と日時ラベルは「タスク登録日時」です。実行開始、終了、所要時間を推定しません。表示状態は手動snapshotの観測時点のもので、現在状態と異なる可能性があります。`latestTurn.status` が `completed` の場合も、直近の実行が終了した意味であり、タスク全体の完了とは表示しません。元タスクはCodexの `codex://threads/<id>` リンクから開きます。
 

@@ -1,0 +1,13 @@
+{
+  "snapshot_observed_at": "2026-10-04T01:00:00Z",
+  "tasks": [
+    {
+      "id": "fixture-task-1",
+      "attachedAt": "2026-10-03T01:00:00Z",
+      "latestTurn": { "status": "completed", "message": "fixture-only body is discarded" },
+      "project": "/tmp/FixtureProject",
+      "conversation": "fixture-only extra field is discarded"
+    }
+  ],
+  "extra": "discarded"
+}

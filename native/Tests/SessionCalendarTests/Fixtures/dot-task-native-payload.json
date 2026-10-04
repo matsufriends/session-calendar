@@ -1,0 +1,15 @@
+{
+  "timezone": "Asia/Tokyo",
+  "sessions": [
+    {
+      "id": "fixture-task-1",
+      "source": "dot-task",
+      "tool": "ChatGPT",
+      "task_registered_at": "2026-10-03T01:00:00Z",
+      "latest_turn_status": "completed",
+      "snapshot_observed_at": "2026-10-04T01:00:00Z",
+      "project": "FixtureProject",
+      "title": "ChatGPT タスク e-task-1"
+    }
+  ]
+}
