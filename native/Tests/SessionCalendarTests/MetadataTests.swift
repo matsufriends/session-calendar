@@ -31,6 +31,40 @@ final class MetadataTests: XCTestCase {
         XCTAssertEqual(result.snapshot.sessions.first?.last_activity, "2026-10-03T03:00:00Z")
         XCTAssertFalse(String(decoding: try JSONEncoder().encode(result.snapshot), as: UTF8.self).contains("never expose"))
     }
+    func testSharedDateFixtureUsesInstantsAndSkipsOnlyInvalidStart() throws {
+        let repository = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+        let fixtureURL = repository.appendingPathComponent("tests/fixtures/session-dates.json")
+        let fixtureData = try Data(contentsOf: fixtureURL)
+        let fixture = try XCTUnwrap(JSONSerialization.jsonObject(with: fixtureData) as? [String: Any])
+        let cases = try XCTUnwrap(fixture["sessions"] as? [[String: Any]])
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let claude = root.appendingPathComponent(".claude/projects/fixture")
+        try FileManager.default.createDirectory(at: claude, withIntermediateDirectories: true)
+        for item in cases {
+            let id = try XCTUnwrap(item["id"] as? String)
+            let events = try XCTUnwrap(item["events"] as? [[String: Any]])
+            let lines = try events.map { event -> String in
+                var row = event
+                row["sessionId"] = id
+                row["cwd"] = "/tmp/fixture"
+                row["message"] = "private body"
+                let data = try JSONSerialization.data(withJSONObject: row, options: [.sortedKeys])
+                return String(decoding: data, as: UTF8.self)
+            }.joined(separator: "\n") + "\n"
+            try Data(lines.utf8).write(to: claude.appendingPathComponent("\(id).jsonl"))
+        }
+        let result = Metadata.collect(home: root)
+        let rows = Dictionary(uniqueKeysWithValues: result.snapshot.sessions.map { ($0.id, $0) })
+        XCTAssertEqual(Set(rows.keys), Set(cases.compactMap { $0["expected_start"] is NSNull ? nil : $0["id"] as? String }))
+        for item in cases where !(item["expected_start"] is NSNull) {
+            let id = try XCTUnwrap(item["id"] as? String)
+            let row = try XCTUnwrap(rows[id])
+            XCTAssertEqual(row.start, item["expected_start"] as? String)
+            XCTAssertEqual(row.last_activity, item["expected_last_activity"] as? String)
+        }
+        XCTAssertFalse(String(decoding: try JSONEncoder().encode(result.snapshot), as: UTF8.self).contains("private body"))
+    }
     func testEndpointRejectsPlainHTTPEmbeddedCredentialQueryAndRedirectTarget() async {
         await MainActor.run {
             XCTAssertNotNil(AppModel.syncURL("https://calendar.example/api/sync"))

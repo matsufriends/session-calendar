@@ -16,3 +16,14 @@ test('privacy badge distinguishes anonymous format, explicit titles and no recei
  assert.match(label([{id:'fixture-1',tool:'Codex',title:'Codex セッション fixture-'}]),/匿名タイトル形式/);
  assert.match(label([{id:'fixture-1',tool:'Codex',title:'Fixture task'}]),/タイトルを含む/);
 });
+test('date helpers treat offset timestamps as instants and leave invalid dates unknown',()=>{
+ const run=(name,value)=>runInNewContext(definition('instant')+'\n'+definition(name)+`;${name}(value)`,{Intl,Date,value});
+ assert.equal(run('daykey','2026-10-04T23:00:00+09:00'),'2026-10-04');
+ assert.equal(run('daykey','2026-10-04T15:30:00Z'),'2026-10-05');
+ assert.equal(run('daykey',new Date('2026-10-04T15:30:00Z')),'2026-10-05');
+ assert.equal(run('daykey','not-a-datetime'),null);
+ assert.equal(run('daykey','2026-10-04T15:30:00'),null);
+ assert.equal(run('daykey','2026-02-30T15:00:00Z'),null);
+ assert.equal(run('dt','not-a-datetime'),'不明');
+ assert.match(runInNewContext(definition('instant')+'\n'+definition('daykey')+'\n'+definition('today')+';today()',{Intl,Date}),/^\d{4}-\d{2}-\d{2}$/);
+});

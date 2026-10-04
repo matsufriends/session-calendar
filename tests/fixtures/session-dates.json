@@ -1,0 +1,69 @@
+{
+  "sessions": [
+    {
+      "id": "offset-reversal",
+      "events": [
+        { "type": "user", "timestamp": "2026-10-04T23:00:00+09:00" },
+        { "type": "assistant", "timestamp": "2026-10-04T15:30:00Z" }
+      ],
+      "expected_start": "2026-10-04T23:00:00+09:00",
+      "expected_last_activity": "2026-10-04T15:30:00Z",
+      "expected_jst_day": "2026-10-04"
+    },
+    {
+      "id": "fractional-seconds",
+      "events": [
+        { "type": "assistant", "timestamp": "2026-10-04T15:00:00.500Z" },
+        { "type": "user", "timestamp": "2026-10-04T15:00:00.250+00:00" }
+      ],
+      "expected_start": "2026-10-04T15:00:00.250+00:00",
+      "expected_last_activity": "2026-10-04T15:00:00.500Z",
+      "expected_jst_day": "2026-10-05"
+    },
+    {
+      "id": "jst-sunday",
+      "events": [{ "type": "user", "timestamp": "2026-10-04T23:59:00+09:00" }],
+      "expected_start": "2026-10-04T23:59:00+09:00",
+      "expected_last_activity": "2026-10-04T23:59:00+09:00",
+      "expected_jst_day": "2026-10-04"
+    },
+    {
+      "id": "jst-monday",
+      "events": [{ "type": "user", "timestamp": "2026-10-05T00:00:00+09:00" }],
+      "expected_start": "2026-10-05T00:00:00+09:00",
+      "expected_last_activity": "2026-10-05T00:00:00+09:00",
+      "expected_jst_day": "2026-10-05"
+    },
+    {
+      "id": "same-instant",
+      "events": [
+        { "type": "user", "timestamp": "2026-10-05T00:00:00+09:00" },
+        { "type": "assistant", "timestamp": "2026-10-04T15:00:00Z" }
+      ],
+      "expected_start": "2026-10-05T00:00:00+09:00",
+      "expected_last_activity": "2026-10-05T00:00:00+09:00",
+      "expected_jst_day": "2026-10-05"
+    },
+    {
+      "id": "invalid-only",
+      "events": [{ "type": "user", "timestamp": "not-a-datetime" }],
+      "expected_start": null,
+      "expected_last_activity": null,
+      "expected_jst_day": null
+    },
+    {
+      "id": "missing-timezone",
+      "events": [{ "type": "user", "timestamp": "2026-10-04T15:30:00" }],
+      "expected_start": null,
+      "expected_last_activity": null,
+      "expected_jst_day": null
+    },
+    {
+      "id": "impossible-date",
+      "events": [{ "type": "user", "timestamp": "2026-02-30T15:00:00Z" }],
+      "expected_start": null,
+      "expected_last_activity": null,
+      "expected_jst_day": null
+    }
+  ]
+}
