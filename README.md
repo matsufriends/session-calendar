@@ -35,6 +35,10 @@ Pythonローカル版は外部通信・クラウド保存を行いません。HT
 
 `python3 -m py_compile app.py`、実データ抽出と返却スキーマ検査、ブラウザーで週表示・一覧・フィルター・詳細の確認。
 
+## 開発時の統合注意
+
+日時契約の独立branchはPR1/2と `app.py`、`native/Sources/SessionCalendar/Metadata.swift`、`index.html` が競合する可能性があります。PR2統合時は `start` を持たないdot-task行も `eventAt(s)` で扱い、開始日時なしの行を一律に落とさないでください。各branchの差分を統合先で再確認してください。
+
 ## Macメニューバーアプリ
 
 macOS 14以降、XcodeのSwift toolchainでビルドできます。
