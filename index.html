@@ -8,7 +8,7 @@ button{font:inherit;color:inherit;background:none;border:1px solid var(--line);b
 #range{font-size:18px;font-weight:600;margin-left:8px}
 #grid{flex:1;overflow:auto;position:relative}
 .cols{display:grid;grid-template-columns:52px repeat(var(--days),minmax(0,1fr));min-width:calc(52px + var(--days)*90px)}
-.dayhead{position:sticky;top:0;z-index:3;background:var(--bg);border-bottom:1px solid var(--line);text-align:center;padding:6px 0;color:var(--sub);font-size:12px}
+.dayhead{position:sticky;top:0;z-index:3;height:52px;background:var(--bg);border-bottom:1px solid var(--line);text-align:center;padding:6px 0;color:var(--sub);font-size:12px}
 .dayhead b{display:block;font-size:20px;font-weight:500;color:var(--fg)}.dayhead.today,.dayhead.today b{color:var(--today)}
 .corner{position:sticky;top:0;left:0;z-index:4;background:var(--bg);border-bottom:1px solid var(--line)}
 .gutter{position:sticky;left:0;z-index:2;background:var(--bg);height:calc(24*var(--hour))}
@@ -26,8 +26,8 @@ button{font:inherit;color:inherit;background:none;border:1px solid var(--line);b
 <div id="grid"><div id="msg">読み込み中…</div></div>
 <div id="pop" hidden></div>
 <script>
-const HOUR=48,DAY=86400000,CAP=2*3600000,$=id=>document.getElementById(id),WEEK=['日','月','火','水','木','金','土'];
-let sessions=[],anchor=dayKey(Date.now());
+const HEAD=52,DAY=86400000,CAP=2*3600000,$=id=>document.getElementById(id),WEEK=['日','月','火','水','木','金','土'];
+let HOUR=48,sessions=[],anchor=dayKey(Date.now());
 function instant(t){if(typeof t!=='string'||!/T\d{2}:\d{2}.*(Z|[+-]\d{2}:?\d{2})$/i.test(t))return null;const n=Date.parse(t);return Number.isFinite(n)?n:null}
 function dayKey(n){return new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Tokyo'}).format(new Date(n))}
 function midnight(d){return Date.parse(d+'T00:00:00+09:00')}
@@ -44,7 +44,7 @@ function el(tag,cls,text){const e=document.createElement(tag);if(cls)e.className
 function dayCount(){return innerWidth<700?1:7}
 function firstDay(){if(dayCount()===1)return anchor;const w=new Date(midnight(anchor)+12*3600000).getUTCDay();return addDays(anchor,-((w+6)%7))}
 function render(){
- hidePop();const n=dayCount(),first=firstDay(),grid=$('grid'),cols=el('div','cols'),today=dayKey(Date.now());
+ hidePop();HOUR=Math.max(16,($('grid').clientHeight-HEAD-1)/24);const n=dayCount(),first=firstDay(),grid=$('grid'),cols=el('div','cols'),today=dayKey(Date.now());
  cols.style.setProperty('--days',n);cols.style.setProperty('--hour',HOUR+'px');cols.append(el('div','corner'));
  const days=Array.from({length:n},(_,i)=>addDays(first,i));
  for(const d of days){const h=el('div','dayhead'+(d===today?' today':''),WEEK[new Date(midnight(d)+12*3600000).getUTCDay()]);h.append(el('b','',String(Number(d.slice(8)))));cols.append(h)}
@@ -59,6 +59,6 @@ function scrollToNow(){const t=(Date.now()-midnight(dayKey(Date.now())))/3600000
 async function load(){try{const r=await fetch('/api/sessions');if(!r.ok)throw Error();const data=await r.json();sessions=(data.sessions||[]).filter(s=>instant(s.start)!==null&&s.tool);render();scrollToNow()}catch{$('grid').replaceChildren(el('div','',''));$('grid').firstChild.id='msg';$('msg').textContent='履歴を読み込めませんでした'}}
 $('prev').onclick=()=>{anchor=addDays(anchor,-dayCount());render()};$('next').onclick=()=>{anchor=addDays(anchor,dayCount());render()};$('today').onclick=()=>{anchor=dayKey(Date.now());render();scrollToNow()};
 document.addEventListener('click',e=>{if(!$('pop').contains(e.target))hidePop()});document.addEventListener('keydown',e=>{if(e.key==='Escape')hidePop()});$('grid').addEventListener('scroll',hidePop);
-let lastCount=dayCount();addEventListener('resize',()=>{if(dayCount()!==lastCount){lastCount=dayCount();render()}else hidePop()});setInterval(()=>{if($('pop').hidden)render()},60000);
+let frame=0;addEventListener('resize',()=>{cancelAnimationFrame(frame);frame=requestAnimationFrame(render)});setInterval(()=>{if($('pop').hidden)render()},60000);
 load();
 </script></html>

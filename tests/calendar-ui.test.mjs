@@ -4,7 +4,7 @@ import {readFileSync} from 'node:fs';
 import {runInNewContext} from 'node:vm';
 
 const source=readFileSync(new URL('../index.html',import.meta.url),'utf8');
-const helpers=source.match(/^const HOUR=.*$/m)[0]+'\n'+['instant','dayKey','midnight','addDays','lastOf','endOf','workTitle','segments','layout'].map(name=>source.match(new RegExp('^function '+name+'\\(.*$','m'))[0]).join('\n');
+const helpers=source.match(/^const HEAD=.*$/m)[0]+'\n'+['instant','dayKey','midnight','addDays','lastOf','endOf','workTitle','segments','layout'].map(name=>source.match(new RegExp('^function '+name+'\\(.*$','m'))[0]).join('\n');
 const ui=runInNewContext(helpers+';({dayKey,addDays,endOf,workTitle,segments,layout})',{Intl,Date,document:{getElementById:()=>null}});
 const at=t=>Date.parse(t);
 const row=(id,start,last,extra={})=>({id,tool:'Codex',title:id,project:'p',start,last_activity:last,end:null,...extra});
