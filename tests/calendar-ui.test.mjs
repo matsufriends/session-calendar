@@ -35,3 +35,26 @@ test('dot task UI uses registration markers, snapshot freshness and a distinct t
  assert.match(source,/codex:\/\/threads\//);
  assert.match(source,/s\.source==='dot-task'\?'dot-task'/);
 });
+test('dot-task markers do not occupy CLI duration lanes',()=>{
+ const layouts=runInNewContext(definition('eventAt')+'\n'+definition('eventLayouts')+';eventLayouts(items)',{Date,Intl,items:[
+  {id:'cli-a',source:'cli',start:'2026-10-03T01:00:00Z'},
+  {id:'task-a',source:'dot-task',task_registered_at:'2026-10-03T01:00:00Z'},
+  {id:'cli-b',source:'cli',start:'2026-10-03T01:05:00Z'},
+  {id:'task-b',source:'dot-task',task_registered_at:'2026-10-03T01:00:00Z'}
+ ]});
+ assert.equal(layouts.laneCount,2);
+ assert.equal(layouts.layouts.get('cli-a').lane,0);
+ assert.equal(layouts.layouts.get('cli-b').lane,1);
+ assert.equal(layouts.layouts.get('task-a').task,true);
+ assert.equal(layouts.layouts.get('task-a').lane,0);
+ assert.equal(layouts.layouts.get('task-b').lane,1);
+ const apply=runInNewContext(definition('eventAt')+'\n'+definition('applyEventLayout')+';applyEventLayout',{Date,Intl});
+ const marker={style:{},classList:{add(value){this.value=value}}};
+ apply(marker,{id:'task',source:'dot-task',task_registered_at:'2026-10-03T01:00:00Z'},{task:true,lane:0},2);
+ assert.equal(marker.style.width,'12px');
+ assert.equal(marker.style.height,'12px');
+ assert.equal(marker.style.left,'8px');
+ assert.equal(marker.classList.value,'task-marker');
+ assert.match(source,/laneEnds\[lane\]=m\+45;layouts\.set\(s\.id,\{task:false,lane\}\)/);
+ assert.match(source,/height:12px!important;min-height:12px!important;max-height:12px!important/);
+});
