@@ -6,7 +6,7 @@ import Foundation
               Updater.parseVersion(Updater.version) != nil,
               let htmlURL = Bundle.main.url(forResource: "index", withExtension: "html"),
               let html = try? Data(contentsOf: htmlURL), !html.isEmpty else {
-            fputs("SessionCalendar self-test failed\n", stderr)
+            fputs("MornSessionCalendar self-test failed\n", stderr)
             exit(1)
         }
         print("{\"ok\":true,\"mode\":\"self-test\",\"resource\":\"index.html\",\"network\":false,\"history\":false}")

@@ -18,7 +18,7 @@ enum CodexCloud {
         socket.resume()
         defer { socket.cancel(with: .normalClosure, reason: nil); session.invalidateAndCancel() }
         do {
-            _ = try await call(socket, id: 0, method: "initialize", params: ["clientInfo": ["name": "session-calendar", "title": NSNull(), "version": "0"]])
+            _ = try await call(socket, id: 0, method: "initialize", params: ["clientInfo": ["name": "morn-session-calendar", "title": NSNull(), "version": "0"]])
             try await socket.send(.string(#"{"method":"initialized"}"#))
             var rows: [SessionRecord] = [], cursor: Any = NSNull(), id = 1
             repeat {

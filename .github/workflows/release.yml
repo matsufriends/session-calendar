@@ -38,7 +38,7 @@ jobs:
           fi
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
           VERSION="$VERSION" UNIVERSAL=1 zsh build-mac.sh
-          dist/SessionCalendar.app/Contents/MacOS/SessionCalendar --self-test
+          dist/MornSessionCalendar.app/Contents/MacOS/MornSessionCalendar --self-test
 
       - name: Sign & notarize via MornNotary
         env:
@@ -48,8 +48,8 @@ jobs:
           set -euo pipefail
           gh auth setup-git
           gh repo clone matsufriends/MornNotary "$RUNNER_TEMP/MornNotary" -- --depth 1
-          bash "$RUNNER_TEMP/MornNotary/sign.sh" dist/SessionCalendar.app
-          mv dist/SessionCalendar-signed.zip dist/SessionCalendar.app.zip
+          bash "$RUNNER_TEMP/MornNotary/sign.sh" dist/MornSessionCalendar.app
+          mv dist/MornSessionCalendar-signed.zip dist/MornSessionCalendar.app.zip
 
       - name: Publish release
         if: github.event_name == 'push'
@@ -58,9 +58,9 @@ jobs:
         run: |
           TAG="${GITHUB_REF_NAME}"
           if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            gh release upload "$TAG" dist/SessionCalendar.app.zip --repo "$GITHUB_REPOSITORY" --clobber
+            gh release upload "$TAG" dist/MornSessionCalendar.app.zip --repo "$GITHUB_REPOSITORY" --clobber
           else
-            gh release create "$TAG" dist/SessionCalendar.app.zip --repo "$GITHUB_REPOSITORY" --generate-notes
+            gh release create "$TAG" dist/MornSessionCalendar.app.zip --repo "$GITHUB_REPOSITORY" --generate-notes
           fi
 
       - name: Update Homebrew tap
@@ -68,7 +68,7 @@ jobs:
           GH_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
         run: |
           set -euo pipefail
-          SHA="$(shasum -a 256 dist/SessionCalendar.app.zip | awk '{print $1}')"
+          SHA="$(shasum -a 256 dist/MornSessionCalendar.app.zip | awk '{print $1}')"
           git clone "https://x-access-token:${GH_TOKEN}@github.com/TsukumiStudio/homebrew-tap.git" tap
           if [ "$GITHUB_EVENT_NAME" = workflow_dispatch ]; then
             git -C tap push --dry-run origin HEAD:main
@@ -76,9 +76,9 @@ jobs:
             exit 0
           fi
           mkdir -p tap/Casks
-          sed -e "s/@VERSION@/${VERSION}/g" -e "s/@SHA256@/${SHA}/g" packaging/session-calendar.rb.in > tap/Casks/session-calendar.rb
+          sed -e "s/@VERSION@/${VERSION}/g" -e "s/@SHA256@/${SHA}/g" packaging/morn-session-calendar.rb.in > tap/Casks/morn-session-calendar.rb
           cd tap
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add Casks/session-calendar.rb
-          git diff --cached --quiet || { git commit -m "session-calendar ${VERSION}"; git push; }
+          git add Casks/morn-session-calendar.rb
+          git diff --cached --quiet || { git commit -m "morn-session-calendar ${VERSION}"; git push; }

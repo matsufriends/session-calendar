@@ -4,5 +4,5 @@
 *.jsonl
 native/.build/
 dist/
-packaging/session-calendar.rb
+packaging/morn-session-calendar.rb
 *.log

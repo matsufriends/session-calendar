@@ -17,4 +17,4 @@ jobs:
       - run: node --test tests/*.test.mjs
       - run: swift test --package-path native
       - run: zsh build-mac.sh
-      - run: dist/SessionCalendar.app/Contents/MacOS/SessionCalendar --self-test
+      - run: dist/MornSessionCalendar.app/Contents/MacOS/MornSessionCalendar --self-test

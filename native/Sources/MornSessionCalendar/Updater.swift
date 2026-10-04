@@ -8,8 +8,8 @@ final class Updater: ObservableObject {
     @Published private(set) var state: State = .idle
     init(state: State = .idle) { self.state = state }
     static let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "開発版"
-    private static let cask = "tsukumistudio/tap/session-calendar"
-    private static let appPath = "/Applications/SessionCalendar.app"
+    private static let cask = "tsukumistudio/tap/morn-session-calendar"
+    private static let appPath = "/Applications/MornSessionCalendar.app"
 
     static func parseVersion(_ raw: String) -> [Int]? {
         let text = raw.hasPrefix("v") ? String(raw.dropFirst()) : raw
@@ -34,11 +34,11 @@ final class Updater: ObservableObject {
         if case .updating = state { return }
         state = .checking
         do {
-            var request = URLRequest(url: URL(string: "https://api.github.com/repos/matsufriends/session-calendar/releases/latest")!)
+            var request = URLRequest(url: URL(string: "https://api.github.com/repos/matsufriends/MornSessionCalendar/releases/latest")!)
             request.timeoutInterval = 20
             request.cachePolicy = .reloadIgnoringLocalCacheData
             request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
-            request.setValue("SessionCalendar", forHTTPHeaderField: "User-Agent")
+            request.setValue("MornSessionCalendar", forHTTPHeaderField: "User-Agent")
             let (data, response) = try await URLSession.shared.data(for: request)
             guard let http = response as? HTTPURLResponse else { throw URLError(.badServerResponse) }
             if http.statusCode == 404 { state = .failed("公開リリースはまだありません"); return }
@@ -100,7 +100,7 @@ final class Updater: ObservableObject {
         guard case .updated = state else { return }
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/bin/sh")
-        process.arguments = ["-c", "sleep 1; /usr/bin/open /Applications/SessionCalendar.app"]
+        process.arguments = ["-c", "sleep 1; /usr/bin/open /Applications/MornSessionCalendar.app"]
         do { try process.run(); NSApp.terminate(nil) }
         catch { state = .failed("手動でアプリを再起動してください。") }
     }

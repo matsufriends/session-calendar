@@ -2,11 +2,11 @@ import Foundation
 import CryptoKit
 
 /// Optional upload of the merged sessions to a self-hosted viewer (e.g. MornUsage /calendar).
-/// Enabled only when ~/.config/session-calendar/push.json exists: {"url": "https://.../api/sessions/push", "token": "..."}.
+/// Enabled only when ~/.config/morn-session-calendar/push.json exists: {"url": "https://.../api/sessions/push", "token": "..."}.
 enum CalendarPush {
     struct Target { let url: URL; let token: String }
     static func target(home: URL = FileManager.default.homeDirectoryForCurrentUser) -> Target? {
-        guard let data = try? Data(contentsOf: home.appendingPathComponent(".config/session-calendar/push.json")),
+        guard let data = try? Data(contentsOf: home.appendingPathComponent(".config/morn-session-calendar/push.json")),
               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let url = (json["url"] as? String).flatMap(URL.init(string:)), url.scheme == "https",
               let token = json["token"] as? String, !token.isEmpty else { return nil }

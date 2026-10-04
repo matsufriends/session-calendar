@@ -1,6 +1,6 @@
 import XCTest
 import ServiceManagement
-@testable import SessionCalendar
+@testable import MornSessionCalendar
 
 @MainActor final class LoginStartupTests: XCTestCase {
     func testLoginRegistrationUsesOSStateAndNeverUnregisters() {

@@ -1,5 +1,5 @@
 import XCTest
-@testable import SessionCalendar
+@testable import MornSessionCalendar
 
 @MainActor
 final class UpdaterTests: XCTestCase {
@@ -16,7 +16,7 @@ final class UpdaterTests: XCTestCase {
             XCTFail("更新コマンドの失敗を成功扱いしてはいけません")
         } catch { }
         do {
-            try await Updater.run("/missing-session-calendar-command", [])
+            try await Updater.run("/missing-morn-session-calendar-command", [])
             XCTFail("起動できないコマンドを成功扱いしてはいけません")
         } catch { }
     }

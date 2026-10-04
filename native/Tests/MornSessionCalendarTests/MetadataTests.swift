@@ -1,5 +1,5 @@
 import XCTest
-@testable import SessionCalendar
+@testable import MornSessionCalendar
 final class MetadataTests: XCTestCase {
     func testTitleNormalizationFixtures() throws {
         let fixtureURL = try XCTUnwrap(Bundle.module.url(forResource: "title-normalization", withExtension: "json", subdirectory: "Fixtures"))

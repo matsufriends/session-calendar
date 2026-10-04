@@ -1,0 +1,13 @@
+cask "morn-session-calendar" do
+  version "@VERSION@"
+  sha256 "@SHA256@"
+
+  url "https://github.com/matsufriends/MornSessionCalendar/releases/download/v#{version}/MornSessionCalendar.app.zip"
+  name "MornSessionCalendar"
+  desc "Local calendar of Claude Code and Codex sessions"
+  homepage "https://github.com/matsufriends/MornSessionCalendar"
+
+  depends_on macos: :sonoma
+
+  app "MornSessionCalendar.app"
+end

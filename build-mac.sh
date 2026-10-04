@@ -5,9 +5,9 @@ args=(-c release --package-path native)
 if [[ "${UNIVERSAL:-0}" == 1 ]]; then args+=(--arch arm64 --arch x86_64); fi
 swift build "${args[@]}"
 binary_dir=$(swift build "${args[@]}" --show-bin-path)
-app_path="$PWD/dist/SessionCalendar.app"
+app_path="$PWD/dist/MornSessionCalendar.app"
 mkdir -p "$app_path/Contents/MacOS" "$app_path/Contents/Resources"
-cp "$binary_dir/SessionCalendar" "$app_path/Contents/MacOS/SessionCalendar"
+cp "$binary_dir/MornSessionCalendar" "$app_path/Contents/MacOS/MornSessionCalendar"
 cp native/Support/Info.plist "$app_path/Contents/Info.plist"
 cp index.html "$app_path/Contents/Resources/index.html"
 if [[ -n "${VERSION:-}" ]]; then

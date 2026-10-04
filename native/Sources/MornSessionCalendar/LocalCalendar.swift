@@ -3,7 +3,7 @@ import Network
 
 final class LocalCalendar {
     private var listener: NWListener?
-    private let queue = DispatchQueue(label: "SessionCalendar.local")
+    private let queue = DispatchQueue(label: "MornSessionCalendar.local")
     private var payload = Data("{\"sessions\":[],\"warnings\":[],\"timezone\":\"Asia/Tokyo\"}".utf8)
     static let port: UInt16 = 18765
     func update(_ snapshot: Snapshot) {

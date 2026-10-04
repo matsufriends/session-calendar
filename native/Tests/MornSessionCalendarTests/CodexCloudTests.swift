@@ -1,5 +1,5 @@
 import XCTest
-@testable import SessionCalendar
+@testable import MornSessionCalendar
 final class CodexCloudTests: XCTestCase {
     func testOnlyTaskThreadsBecomeSessions() throws {
         let task = try XCTUnwrap(CodexCloud.record(["id": "a", "createdAt": 1791130405.0, "updatedAt": 1791130812.0, "threadSource": "aeon_child", "name": "更新する カレンダー", "cwd": "/tmp/Codex/task-1"]))
@@ -14,7 +14,7 @@ final class CalendarPushTests: XCTestCase {
         let home = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: home) }
         XCTAssertNil(CalendarPush.target(home: home))
-        let dir = home.appendingPathComponent(".config/session-calendar")
+        let dir = home.appendingPathComponent(".config/morn-session-calendar")
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         let file = dir.appendingPathComponent("push.json")
         try Data(#"{"url":"http://example.test/api/sessions/push","token":"t"}"#.utf8).write(to: file)

@@ -95,7 +95,7 @@ func withTimeout<T: Sendable>(seconds: Double, _ work: @escaping @Sendable () as
         return first
     }
 }
-@main struct SessionCalendarApp: App {
+@main struct MornSessionCalendarApp: App {
     @StateObject private var model: AppModel
     @StateObject private var updater = Updater()
     init() {
@@ -103,7 +103,7 @@ func withTimeout<T: Sendable>(seconds: Double, _ work: @escaping @Sendable () as
         _model = StateObject(wrappedValue: AppModel())
     }
     var body: some Scene {
-        MenuBarExtra("Session Calendar", systemImage: model.icon) { Dashboard(model: model, updater: updater) }.menuBarExtraStyle(.window)
+        MenuBarExtra("MornSessionCalendar", systemImage: model.icon) { Dashboard(model: model, updater: updater) }.menuBarExtraStyle(.window)
     }
 }
 @MainActor struct Dashboard: View {
@@ -111,7 +111,7 @@ func withTimeout<T: Sendable>(seconds: Double, _ work: @escaping @Sendable () as
     @ObservedObject var updater: Updater
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.panel) {
-            Label("Session Calendar", systemImage: "calendar").font(.headline)
+            Label("MornSessionCalendar", systemImage: "calendar").font(.headline)
             Text(model.status).font(.callout)
             if let error = model.errorMessage { Label(error, systemImage: "exclamationmark.triangle").font(.caption).foregroundStyle(.red).fixedSize(horizontal: false, vertical: true) }
             Button("カレンダーを開く") { model.openCalendar() }.buttonStyle(.borderedProminent)

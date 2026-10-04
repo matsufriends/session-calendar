@@ -1,5 +1,5 @@
 import XCTest
-@testable import SessionCalendar
+@testable import MornSessionCalendar
 final class SessionTitleTests: XCTestCase {
     func testOfficialTitles() throws {
         let fixture = try XCTUnwrap(Bundle.module.url(forResource: "session-titles", withExtension: "json", subdirectory: "Fixtures"))
