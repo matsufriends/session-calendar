@@ -47,7 +47,7 @@ def collect(home=None):
                             r=json.loads(next(stream)); p=r.get('payload',{})
                             if r.get('type')!='session_meta': continue
                             sid=p.get('id') or p.get('session_id') or sid
-                            raw_start=p.get('timestamp') if isinstance(p.get('timestamp'),str) else r.get('timestamp'); parsed_start=parse_instant(raw_start)
+                            raw_start=p.get('timestamp') or r.get('timestamp'); parsed_start=parse_instant(raw_start)
                             start=(parsed_start,raw_start) if parsed_start else None
                             if raw_start and not parsed_start: errors.append('不正な日時の履歴を除外しました')
                             project=p.get('cwd','')
