@@ -14,6 +14,26 @@ final class MetadataTests: XCTestCase {
         XCTAssertEqual(Set(rows[0].keys), Set(["id","tool","start","last_activity","end","project","title"]))
         XCTAssertFalse(String(decoding: data, as: UTF8.self).contains("/Users/"))
     }
+    func testPreparedTitleMatchesSharedNormalizationFixtures() throws {
+        let fixtureURL = try XCTUnwrap(Bundle.module.url(forResource: "title-normalization", withExtension: "json", subdirectory: "Fixtures"))
+        let fixtures = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: fixtureURL)) as? [[String: Any]])
+        for fixture in fixtures {
+            func expanded(_ value: Any) throws -> String {
+                if let string = value as? String { return string }
+                let parts = try XCTUnwrap(value as? [String: Any])
+                let repeated = try XCTUnwrap(parts["repeat"] as? String)
+                let count = try XCTUnwrap(parts["count"] as? Int)
+                return String(repeating: repeated, count: count) + (parts["suffix"] as? String ?? "")
+            }
+            let input = try expanded(XCTUnwrap(fixture["input"]))
+            let expected = try expanded(XCTUnwrap(fixture["expected"]))
+            let row = SessionRecord(id: "fixture", tool: "Codex", start: "2026-10-03T01:00:00Z", last_activity: nil, project: "Fixture", title: input)
+            let prepared = Metadata.prepared(Snapshot(sessions: [row]), includeTitles: true)
+            XCTAssertEqual(prepared.sessions[0].title, expected, fixture["name"] as? String ?? "fixture")
+            XCTAssertLessThanOrEqual(prepared.sessions[0].title.utf16.count, 300)
+            XCTAssertFalse(prepared.sessions[0].title.unicodeScalars.contains { $0.value <= 0x1f })
+        }
+    }
     func testBothSourcesWithArtificialMetadataOnly() throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) }

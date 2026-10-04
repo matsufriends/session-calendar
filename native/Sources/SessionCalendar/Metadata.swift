@@ -52,6 +52,16 @@ final class JSONLines {
     }
 }
 enum Metadata {
+    static func normalizedTitle(_ title: String) -> String {
+        let cleaned = String(title.unicodeScalars.map { $0.value <= 0x1f ? " " : String($0) }.joined())
+        var result = "", length = 0
+        for character in cleaned {
+            let units = character.utf16.count
+            guard length + units <= 300 else { break }
+            result.append(character); length += units
+        }
+        return result.isEmpty ? "無題" : result
+    }
     private static func instant(_ value: Any?) -> (date: Date, text: String)? {
         guard let text = value as? String, !text.isEmpty else { return nil }
         let pattern = #"^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2})(\.(\d+))?)?(Z|[+-]\d{2}:?\d{2})$"#
@@ -102,7 +112,7 @@ enum Metadata {
     static func prepared(_ snapshot: Snapshot, includeTitles: Bool) -> Snapshot {
         Snapshot(sessions: snapshot.sessions.map { row in
             var s = row; s.project = projectLabel(s.project); s.end = nil
-            s.title = includeTitles ? String(s.title.prefix(300)) : "\(s.tool) セッション \(s.id.prefix(8))"
+            s.title = includeTitles ? normalizedTitle(s.title) : "\(s.tool) セッション \(s.id.prefix(8))"
             return s
         })
     }
