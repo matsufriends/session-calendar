@@ -11,7 +11,7 @@ import time
 SOURCE_KINDS = ('cli', 'vscode', 'exec', 'appServer', 'subAgent',
                 'subAgentReview', 'subAgentCompact', 'subAgentThreadSpawn',
                 'subAgentOther', 'unknown')
-SCOPE = 'Codex: このMacのstate DB metadata（全source・archive含む）。cloud網羅は保証しません'
+SCOPE = 'Codex: このMacのstate DB metadata＋JSONL補完（全source・archive含む）。cloud網羅は保証しません'
 
 
 class SourceError(Exception):
@@ -146,7 +146,7 @@ def collect_codex(command=('codex', 'app-server', '--stdio'), timeout=20):
             cursors = set()
             for _ in range(1000):
                 result = client.request('thread/list', dict(sourceKinds=list(SOURCE_KINDS),
-                    useStateDbOnly=True, archived=archived, limit=100, cursor=cursor))
+                    useStateDbOnly=True, modelProviders=[], archived=archived, limit=100, cursor=cursor))
                 rows = result.get('data')
                 if not isinstance(rows, list):
                     raise SourceError('一覧形式不一致')

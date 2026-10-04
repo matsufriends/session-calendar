@@ -15,8 +15,8 @@ def build_cloud(html):
         "let sessions=[],anchor=today(),warnings=[],sourceScope='',syncedAt=null;",
         'state declaration')
     html = replace_once(html,
-        "sourceScope=data.source_scope||'';render()",
-        "sourceScope=data.source_scope||'';syncedAt=data.synced_at;render()",
+        "sourceScope=data.source_scope||'';",
+        "sourceScope=data.source_scope||'';syncedAt=data.synced_at;",
         'load sync timestamp')
     html = replace_once(html,
         "${warnings.length?' · '+warnings.join(' / '):''}",

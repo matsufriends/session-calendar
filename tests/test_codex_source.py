@@ -29,6 +29,7 @@ for line in sys.stdin:
  assert r['method']=='thread/list'
  assert r['params']['useStateDbOnly'] is True
  assert len(r['params']['sourceKinds'])==10
+ assert r['params']['modelProviders']==[]
 ''' + behavior)
         return [sys.executable, str(path)]
 
@@ -106,6 +107,29 @@ for line in sys.stdin:
         merged=source.merge_codex([old,other],[new])
         self.assertEqual(len(merged),2)
         self.assertEqual(merged[0]['title'],'explicit name')
+
+    def test_explicit_home_never_launches_real_cli(self):
+        with tempfile.TemporaryDirectory() as directory, patch.object(app,'collect_codex') as reader:
+            result=app.collect(directory)
+        reader.assert_not_called()
+        self.assertEqual(result['sessions'],[])
+        self.assertIn('fixture',result['source_scope'])
+
+    def test_integrated_datetime_identity_and_metadata_scope(self):
+        with tempfile.TemporaryDirectory() as directory:
+            home=Path(directory)
+            base=home/'.codex/sessions';base.mkdir(parents=True)
+            record={'type':'session_meta','payload':{'id':'fixture','timestamp':'2026-10-04T23:00:00+09:00','cwd':'/fixture'}}
+            (base/'fixture.jsonl').write_text(json.dumps(record)+'\n')
+            claude=home/'.claude/projects';claude.mkdir(parents=True)
+            (claude/'fixture.jsonl').write_text(json.dumps({'type':'user','sessionId':'fixture','timestamp':'2026-10-04T15:30:00Z','cwd':'/fixture'})+'\n')
+            newer=dict(source.project_thread(dict(ROW),False), start='2026-10-04T23:00:00+09:00',title='Explicit metadata title')
+            result=app.collect(home,codex_reader=lambda:[newer])
+        self.assertEqual([row['tool'] for row in result['sessions']],['Claude','Codex'])
+        self.assertEqual(len(result['sessions']),2)
+        self.assertEqual(result['sessions'][1]['title'],'Explicit metadata title')
+        self.assertIn('app-server 1件',result['source_scope'])
+        self.assertFalse(result['warnings'])
 
     def test_fallback_scope_and_failure(self):
         with tempfile.TemporaryDirectory() as directory, patch.object(app.Path,'home',return_value=Path(directory)), patch.object(app,'collect_codex',side_effect=source.SourceError('timeout')):

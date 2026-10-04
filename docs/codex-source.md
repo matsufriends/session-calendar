@@ -26,3 +26,9 @@ JSONL collectorを維持し、同じCodex IDにはstate DBの投影値を優先�
 `python3 -m unittest discover -s tests` はpreview除外、allowlist、source mapping、cursor/重複、分割JSONL/notification、malformed応答、timeoutとprocess reap、EOF終了、JSONL fallbackを人工fixtureで検査します。実dataをtestsやログへ保存しません。
 
 この実行環境では空の一時CODEX_HOMEで公式CLIのinitialize→一覧（active/archive）→EOF終了を確認しました。実ホームでの起動はread-only state DBエラーです。実metadata mappingはDBをmode=roで開き許可fieldだけを投影して件数を確認しましたが、statusはschema fixtureを与えたため、実runtime statusの検証ではありません。運用ホームでのapp-server全一覧とnative連携は未検証です。
+
+## 最新mainとの統合
+
+main `0be60ba230f8c6f8d907725f483887104b3e007d` の日時契約（offset付き日時の実時間比較、不正開始日時の除外）と `tool:id` のカード配置を保持します。nativeのUTF-16 300単位・C0除去・文字cluster境界のタイトル契約、およびsnapshot非更新の署名付きcheckはmain実装のままです。`collect(home=...)` は人工JSONL fixture用で実CLIを起動しません。adapterの統合fixtureには明示的にreaderを注入できます。
+
+引継ぎ済みの公式CLI 0.139.0実ホーム検証では、active/archiveの各1ページはともに0件でprotocolは成功しました。これは履歴coverageの確認ではなく、dot/cloud task全件取得を主張しません。本cloneのread-only sandbox起動拒否、空の一時ホームの成功、従来JSONL件数確認とは別の検証結果です。Native adapter連携は未実装でこのPRの範囲外です。
