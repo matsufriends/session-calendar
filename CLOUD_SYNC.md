@@ -32,7 +32,7 @@ Macメニューバーアプリは初回同期無効、5分ごとの変更時送�
 
 ## 検証と運用
 
-`npm test`と`swift test --package-path native`は人工fixtureのみ。`--self-test`は履歴/Keychain/通信なし。`--provision-key`は公開鍵だけを出力。`--probe-empty-sync`は実履歴を読まず空データの送信・リプレイ拒否・閲覧拒否・偽署名拒否を検査します。Keychain UIは許可せず、検査全体に15秒期限を設けます。
+`npm test`と`swift test --package-path native`は人工fixtureのみ。Native→Worker→Webを通すdot-task E2EはmacOSのみで実行し、web CIではプラットフォームによりskipします。既存mac CIは`build-mac.sh`内で`npm ci`と`npm test`も実行してからアプリをビルドするため、このE2Eを実行します。`--self-test`は履歴/Keychain/通信なし。`--provision-key`は公開鍵だけを出力。`--probe-empty-sync`は実履歴を読まず空データの送信・リプレイ拒否・閲覧拒否・偽署名拒否を検査します。Keychain UIは許可せず、検査全体に15秒期限を設けます。
 
 workers.devとpreview URLを無効化し、assetsはWorkerを先に通します。本人ログインと保護確認が完了するまで実履歴を送らないでください。同期を停止しても最後のsnapshotは残ります。廃止時は専用Durable Objectのsnapshot/nonceとMac専用鍵を削除します。
 

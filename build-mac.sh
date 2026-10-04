@@ -1,6 +1,11 @@
 #!/bin/zsh
 set -euo pipefail
 cd "${0:A:h}"
+if [[ "${GITHUB_ACTIONS:-}" == true ]]; then
+    # 既存mac CIはこのスクリプトを実行するため、Nativeを使うE2Eもここで実行する。
+    npm ci
+    npm test
+fi
 args=(-c release --package-path native)
 if [[ "${UNIVERSAL:-0}" == 1 ]]; then args+=(--arch arm64 --arch x86_64); fi
 swift build "${args[@]}"

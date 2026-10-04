@@ -27,6 +27,7 @@ enum Spacing {
     @Published var lastCount: Int = 0
     @Published var errorMessage: String?
     private var task: Task<Void, Never>?
+    private var dotSnapshotTask: Task<Void, Never>?
     private var digest: Data?
     private var snapshot = Snapshot(sessions: [])
     private let calendar = LocalCalendar()
@@ -76,6 +77,9 @@ enum Spacing {
         let collector = collectMetadata
         let imported = dotTaskSnapshot
         let result = await Task.detached(priority: .utility) { collector(imported) }.value
+        return apply(result)
+    }
+    @discardableResult private func apply(_ result: Collection) -> Bool {
         snapshot = result.snapshot
         codexCount = snapshot.sessions.filter { $0.tool == "Codex" }.count
         claudeCount = snapshot.sessions.filter { $0.tool == "Claude" }.count
@@ -87,6 +91,7 @@ enum Spacing {
     }
     func refresh() { Task { _ = await collect() } }
     func importDotSnapshot(_ result: Result<[URL], Error>) {
+        guard !busy else { return }
         guard case .success(let urls) = result, let url = urls.first else { return }
         let accessed = url.startAccessingSecurityScopedResource()
         defer { if accessed { url.stopAccessingSecurityScopedResource() } }
@@ -95,18 +100,40 @@ enum Spacing {
             guard (values.fileSize ?? 0) <= 2 * 1024 * 1024 else { throw DotTaskSnapshot.ImportError.tooLarge }
             let imported = try DotTaskSnapshot.decode(Data(contentsOf: url))
             let encoded = try JSONEncoder().encode(imported)
-            defaults.set(encoded, forKey: "dotTaskSnapshot")
-            dotTaskSnapshot = imported; digest = nil; errorMessage = nil
-            Task { if await collect(), enabled { syncNow() } }
+            busy = true; status = "snapshotのID衝突を確認中"
+            let collector = collectMetadata
+            dotSnapshotTask = Task {
+                let validation = await Task.detached(priority: .utility) { collector(imported) }.value
+                guard validation.failures == 0 else {
+                    busy = false
+                    status = "読み込み失敗"
+                    errorMessage = "dot-task snapshotを読み込めません。JSON・必須項目・ID重複を確認してください"
+                    return
+                }
+                defaults.set(encoded, forKey: "dotTaskSnapshot")
+                dotTaskSnapshot = imported; digest = nil; errorMessage = nil
+                _ = apply(validation)
+                busy = false
+                if enabled { syncNow() }
+            }
         } catch {
             errorMessage = "dot-task snapshotを読み込めません。JSON・必須項目・ID重複を確認してください"
         }
     }
     func clearDotSnapshot() {
-        defaults.removeObject(forKey: "dotTaskSnapshot")
-        dotTaskSnapshot = nil; dotTaskCount = 0; digest = nil
-        Task { if await collect(), enabled { syncNow() } }
+        guard !busy else { return }
+        busy = true
+        let collector = collectMetadata
+        dotSnapshotTask = Task {
+            let refreshed = await Task.detached(priority: .utility) { collector(nil) }.value
+            defaults.removeObject(forKey: "dotTaskSnapshot")
+            dotTaskSnapshot = nil; digest = nil
+            _ = apply(refreshed)
+            busy = false
+            if refreshed.failures == 0, enabled { syncNow() }
+        }
     }
+    func waitForDotSnapshotForTesting() async { await dotSnapshotTask?.value }
     func pause() { enabled = false; defaults.set(false, forKey: "syncEnabled"); task?.cancel(); status = "送信は一時停止中" }
     func enable() {
         guard let url=Self.syncURL(endpoint) else { errorMessage="同期先URLが未設定です";showSettings=true;return }

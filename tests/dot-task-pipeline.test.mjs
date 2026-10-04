@@ -15,7 +15,9 @@ const definition=name=>index.match(new RegExp('^function '+name+'\\(.*$','m'))[0
 const bytes=value=>new TextEncoder().encode(value);
 const hex=value=>Buffer.from(value).toString('hex');
 
-test('fixture snapshot traverses Native payload, Worker validation/storage, and Web task semantics',async()=>{
+test('fixture snapshot traverses Native payload, Worker validation/storage, and Web task semantics',{
+ skip:process.platform!=='darwin',
+},async()=>{
  const temporary=mkdtempSync(join(tmpdir(),'session-calendar-dot-pipeline-'));
  try {
   const payloadPath=join(temporary,'native-payload.json');

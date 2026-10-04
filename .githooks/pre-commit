@@ -1,0 +1,11 @@
+#!/bin/sh
+set -eu
+
+root=$(git rev-parse --show-toplevel)
+cd "$root"
+
+git diff --cached --check
+npm test
+python3 -m py_compile app.py
+swift test --package-path native
+npm run build
