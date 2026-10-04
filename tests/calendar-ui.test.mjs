@@ -44,8 +44,7 @@ test('overlapping sessions split the column and separate groups reset',()=>{
  assert.deepEqual([by.d.col,by.d.cols],[0,1]);
 });
 
-test('anonymous or empty titles get a neutral heading',()=>{
- assert.equal(ui.workTitle({tool:'Codex',id:'abcdefgh1234',title:'Codex セッション abcdefgh'}),'作業名なし');
+test('empty titles get a neutral heading',()=>{
  assert.equal(ui.workTitle({tool:'Codex',id:'x',title:' '}),'作業名なし');
  assert.equal(ui.workTitle({tool:'Codex',id:'x',title:'実装'}),'実装');
 });

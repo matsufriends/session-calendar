@@ -1,23 +1,9 @@
 import XCTest
 @testable import SessionCalendar
 final class MetadataTests: XCTestCase {
-    func testPreparedSnapshotOmitsTitleAndAbsolutePathAndHasNullTimes() throws {
-        let input = SessionRecord(id: "fixture-session", tool: "Codex", start: "2026-10-03T01:00:00Z", last_activity: nil, project: "/Users/person/PrivateProject", title: "confidential title")
-        let result = Metadata.prepared(Snapshot(sessions: [input]), includeTitles: false)
-        let data = try JSONEncoder().encode(result)
-        let json = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
-        let rows = try XCTUnwrap(json["sessions"] as? [[String: Any]])
-        XCTAssertEqual(rows[0]["project"] as? String, "PrivateProject")
-        XCTAssertEqual(rows[0]["title"] as? String, "Codex セッション fixture-")
-        XCTAssertTrue(rows[0]["end"] is NSNull)
-        XCTAssertTrue(rows[0]["last_activity"] is NSNull)
-        XCTAssertEqual(Set(rows[0].keys), Set(["id","tool","start","last_activity","end","project","title"]))
-        XCTAssertFalse(String(decoding: data, as: UTF8.self).contains("/Users/"))
-    }
-    func testPreparedTitleMatchesSharedNormalizationFixtures() throws {
+    func testTitleNormalizationFixtures() throws {
         let fixtureURL = try XCTUnwrap(Bundle.module.url(forResource: "title-normalization", withExtension: "json", subdirectory: "Fixtures"))
         let fixtures = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: fixtureURL)) as? [[String: Any]])
-        var exported: [[String: String]] = []
         for fixture in fixtures {
             func expanded(_ value: Any) throws -> String {
                 if let string = value as? String { return string }
@@ -28,15 +14,10 @@ final class MetadataTests: XCTestCase {
             }
             let input = try expanded(XCTUnwrap(fixture["input"]))
             let expected = try expanded(XCTUnwrap(fixture["expected"]))
-            let row = SessionRecord(id: "fixture", tool: "Codex", start: "2026-10-03T01:00:00Z", last_activity: nil, project: "Fixture", title: input)
-            let prepared = Metadata.prepared(Snapshot(sessions: [row]), includeTitles: true)
-            XCTAssertEqual(prepared.sessions[0].title, expected, fixture["name"] as? String ?? "fixture")
-            XCTAssertLessThanOrEqual(prepared.sessions[0].title.utf16.count, 300)
-            XCTAssertFalse(prepared.sessions[0].title.unicodeScalars.contains { $0.value <= 0x1f })
-            exported.append(["name": fixture["name"] as? String ?? "fixture", "title": prepared.sessions[0].title])
-        }
-        if let path = ProcessInfo.processInfo.environment["TITLE_FIXTURE_SNAPSHOT"] {
-            try JSONSerialization.data(withJSONObject: exported).write(to: URL(fileURLWithPath: path + ".normalization"))
+            let title = Metadata.normalizedTitle(input)
+            XCTAssertEqual(title, expected, fixture["name"] as? String ?? "fixture")
+            XCTAssertLessThanOrEqual(title.utf16.count, 300)
+            XCTAssertFalse(title.unicodeScalars.contains { $0.value <= 0x1f })
         }
     }
     func testBothSourcesWithArtificialMetadataOnly() throws {
@@ -57,8 +38,7 @@ final class MetadataTests: XCTestCase {
         XCTAssertFalse(String(decoding: try JSONEncoder().encode(result.snapshot), as: UTF8.self).contains("never expose"))
     }
     func testSharedDateFixtureUsesInstantsAndSkipsOnlyInvalidStart() throws {
-        let repository = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
-        let fixtureURL = repository.appendingPathComponent("tests/fixtures/session-dates.json")
+        let fixtureURL = try XCTUnwrap(Bundle.module.url(forResource: "session-dates", withExtension: "json", subdirectory: "Fixtures"))
         let fixtureData = try Data(contentsOf: fixtureURL)
         let fixture = try XCTUnwrap(JSONSerialization.jsonObject(with: fixtureData) as? [String: Any])
         let cases = try XCTUnwrap(fixture["sessions"] as? [[String: Any]])
@@ -91,8 +71,7 @@ final class MetadataTests: XCTestCase {
         XCTAssertFalse(String(decoding: try JSONEncoder().encode(result.snapshot), as: UTF8.self).contains("private body"))
     }
     func testCodexPayloadJSONNullFallsBackToOuterTimestamp() throws {
-        let repository = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
-        let fixtureURL = repository.appendingPathComponent("tests/fixtures/session-dates.json")
+        let fixtureURL = try XCTUnwrap(Bundle.module.url(forResource: "session-dates", withExtension: "json", subdirectory: "Fixtures"))
         let fixture = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: fixtureURL)) as? [String: Any])
         let metadata = try XCTUnwrap(fixture["codex_timestamp_fallback"] as? [String: Any])
         let record = try XCTUnwrap(metadata["record"] as? [String: Any])
@@ -104,11 +83,5 @@ final class MetadataTests: XCTestCase {
         try Data(line.utf8).write(to: codex.appendingPathComponent("fixture.jsonl"))
         let result = Metadata.collect(home: root)
         XCTAssertEqual(result.snapshot.sessions.first?.start, metadata["expected_start"] as? String)
-    }
-    func testEndpointRejectsPlainHTTPEmbeddedCredentialQueryAndRedirectTarget() async {
-        await MainActor.run {
-            XCTAssertNotNil(AppModel.syncURL("https://calendar.example/api/sync"))
-            for value in ["http://calendar.example/api/sync", "https://user:secret@calendar.example/api/sync", "https://calendar.example/wrong", "https://calendar.example/api/sync?token=secret"] { XCTAssertNil(AppModel.syncURL(value)) }
-        }
     }
 }

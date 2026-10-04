@@ -37,7 +37,7 @@ function hm(n){return new Date(n).toLocaleTimeString('ja-JP',{timeZone:'Asia/Tok
 function lastOf(s){const a=instant(s.start),b=instant(s.end)??instant(s.last_activity);return b!==null&&b>a?b:a}
 // ponytail: 終了時刻がない記録は最終記録まで最大2時間で表示を打ち切る。実作業区間が取れるようになったら置き換える
 function endOf(s){const a=instant(s.start),b=lastOf(s);return instant(s.end)!==null?b:Math.min(b,a+CAP)}
-function workTitle(s){return !s.title?.trim()||s.title===s.tool+' セッション '+String(s.id).slice(0,8)?'作業名なし':s.title}
+function workTitle(s){return s.title?.trim()||'作業名なし'}
 function segments(items,d){const lo=midnight(d),hi=lo+DAY;return items.map(s=>({s,a:instant(s.start),b:endOf(s)})).filter(x=>x.a!==null&&x.a<hi&&(x.b>lo||x.a>=lo)).map(x=>({s:x.s,cut:x.b<lastOf(x.s),top:Math.max(x.a,lo),bottom:Math.max(Math.min(x.b,hi),Math.max(x.a,lo)+20*60000)}))}
 function layout(segs){segs.sort((x,y)=>x.top-y.top||y.bottom-x.bottom);let cluster=[],end=-Infinity;const done=()=>{const cols=[];for(const g of cluster){let c=cols.findIndex(e=>e<=g.top);if(c<0)c=cols.length;cols[c]=g.bottom;g.col=c}for(const g of cluster)g.cols=cols.length;cluster=[]};for(const g of segs){if(g.top>=end)done();cluster.push(g);end=Math.max(end,g.bottom)}done();return segs}
 function el(tag,cls,text){const e=document.createElement(tag);if(cls)e.className=cls;if(text!==undefined)e.textContent=text;return e}

@@ -4,7 +4,7 @@ cask "session-calendar" do
 
   url "https://github.com/matsufriends/session-calendar/releases/download/v#{version}/SessionCalendar.app.zip"
   name "Session Calendar"
-  desc "Menu bar calendar and private metadata sync for Claude Code and Codex"
+  desc "Local calendar of Claude Code and Codex sessions"
   homepage "https://github.com/matsufriends/session-calendar"
 
   depends_on macos: :sonoma

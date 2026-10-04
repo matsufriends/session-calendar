@@ -114,13 +114,6 @@ enum Metadata {
         let name = path.replacingOccurrences(of: "\\", with: "/").split(separator: "/").last.map(String.init) ?? "不明"
         return String(name.prefix(200))
     }
-    static func prepared(_ snapshot: Snapshot, includeTitles: Bool) -> Snapshot {
-        Snapshot(sessions: snapshot.sessions.map { row in
-            var s = row; s.project = projectLabel(s.project); s.end = nil
-            s.title = includeTitles ? normalizedTitle(s.title) : "\(s.tool) セッション \(s.id.prefix(8))"
-            return s
-        })
-    }
     static func collect(home: URL = FileManager.default.homeDirectoryForCurrentUser) -> Collection {
         var names: [String: [String: Any]] = [:], rows: [String: SessionRecord] = [:], failures = 0
         let index = home.appendingPathComponent(".codex/session_index.jsonl")
@@ -158,7 +151,7 @@ enum Metadata {
                         }
                     }
                     if let start {
-                        rows[tool + ":" + id] = SessionRecord(id: id, tool: tool, start: start.text, last_activity: last?.text, project: projectLabel(project), title: [title, aiTitle, summary].first(where: { !$0.isEmpty }) ?? "作業名不明")
+                        rows[tool + ":" + id] = SessionRecord(id: id, tool: tool, start: start.text, last_activity: last?.text, project: projectLabel(project), title: normalizedTitle([title, aiTitle, summary].first(where: { !$0.isEmpty }) ?? "作業名不明"))
                     }
                 } catch { failures += 1 }
             }

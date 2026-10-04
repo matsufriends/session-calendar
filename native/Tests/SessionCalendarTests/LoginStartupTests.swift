@@ -4,12 +4,9 @@ import ServiceManagement
 
 @MainActor final class LoginStartupTests: XCTestCase {
     func testLoginRegistrationUsesOSStateAndNeverUnregisters() {
-        let name = "login.fixture." + UUID().uuidString
-        let defaults = UserDefaults(suiteName: name)!
-        defer { defaults.removePersistentDomain(forName: name) }
         var status: SMAppService.Status = .notRegistered
         var registrations = 0, settings = 0
-        let model = AppModel(defaults: defaults, startBackgroundTasks: false, keyProvider: { nil },
+        let model = AppModel(startBackgroundTasks: false,
             loginStatusProvider: { status }, loginRegister: { registrations += 1; status = .enabled },
             openLoginSettings: { settings += 1 })
         XCTAssertEqual(model.loginLabel, "ログイン時に起動：オフ")
@@ -22,11 +19,11 @@ import ServiceManagement
     }
     func testRegistrationRefreshesApprovalAndFailureWithoutInventingEnabledState() {
         var status: SMAppService.Status = .notRegistered, settings = 0
-        let model = AppModel(startBackgroundTasks: false, keyProvider: { nil }, loginStatusProvider: { status },
+        let model = AppModel(startBackgroundTasks: false, loginStatusProvider: { status },
             loginRegister: { status = .requiresApproval }, openLoginSettings: { settings += 1 })
         model.registerLogin()
         XCTAssertEqual(model.loginStatus, .requiresApproval); XCTAssertEqual(settings, 1)
-        let failing = AppModel(startBackgroundTasks: false, keyProvider: { nil }, loginStatusProvider: { .notRegistered },
+        let failing = AppModel(startBackgroundTasks: false, loginStatusProvider: { .notRegistered },
             loginRegister: { throw NSError(domain: "fixture", code: 1) }, openLoginSettings: { XCTFail() })
         failing.registerLogin()
         XCTAssertEqual(failing.loginStatus, .notRegistered); XCTAssertNotNil(failing.errorMessage)
