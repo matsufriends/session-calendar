@@ -67,10 +67,12 @@ enum Metadata {
               !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
         return text
     }
+    private static let instantPattern = try! NSRegularExpression(pattern: #"^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2})(\.(\d+))?)?(Z|[+-]\d{2}:?\d{2})$"#)
+    private static let fractionalFormatter: ISO8601DateFormatter = { let f = ISO8601DateFormatter(); f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]; return f }()
+    private static let ordinaryFormatter: ISO8601DateFormatter = { let f = ISO8601DateFormatter(); f.formatOptions = [.withInternetDateTime]; return f }()
     private static func instant(_ value: Any?) -> (date: Date, text: String)? {
         guard let text = value as? String, !text.isEmpty else { return nil }
-        let pattern = #"^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2})(\.(\d+))?)?(Z|[+-]\d{2}:?\d{2})$"#
-        guard let match = try? NSRegularExpression(pattern: pattern).firstMatch(in: text, range: NSRange(text.startIndex..., in: text)) else { return nil }
+        guard let match = instantPattern.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)) else { return nil }
         func component(_ index: Int, default defaultValue: Int? = nil) -> Int? {
             guard let range = Range(match.range(at: index), in: text) else { return defaultValue }
             return Int(text[range])
@@ -103,11 +105,7 @@ enum Metadata {
             let zone = String(text[zoneRange])
             normalized = String(format: "%04d-%02d-%02dT00:%02d:%02d%@%@", year, month, day, minute, second, fraction, zone)
         }
-        let fractional = ISO8601DateFormatter()
-        fractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        let ordinary = ISO8601DateFormatter()
-        ordinary.formatOptions = [.withInternetDateTime]
-        if let date = fractional.date(from: normalized) ?? ordinary.date(from: normalized) { return (date, text) }
+        if let date = fractionalFormatter.date(from: normalized) ?? ordinaryFormatter.date(from: normalized) { return (date, text) }
         return nil
     }
     static func projectLabel(_ path: String) -> String {
@@ -138,8 +136,10 @@ enum Metadata {
                         title = titleValue(names[id]?["thread_name"]) ?? ""
                         last = instant(names[id]?["updated_at"])
                     } else {
-                        while let r = try lines.next() {
-                            if r["isSidechain"] as? Bool == true { continue }
+                        // Drain per-line Foundation objects; large histories otherwise hold gigabytes until the scan ends.
+                        while try autoreleasepool(invoking: { () throws -> Bool in
+                            guard let r = try lines.next() else { return false }
+                            if r["isSidechain"] as? Bool == true { return true }
                             id = r["sessionId"] as? String ?? id; project = r["cwd"] as? String ?? project
                             if ["user", "assistant"].contains(r["type"] as? String ?? ""), let parsed = instant(r["timestamp"]) {
                                 if start == nil || parsed.date < start!.date { start = parsed }
@@ -148,7 +148,8 @@ enum Metadata {
                             if r["type"] as? String == "custom-title" { title = titleValue(r["customTitle"]) ?? title }
                             if r["type"] as? String == "ai-title" { aiTitle = titleValue(r["aiTitle"]) ?? aiTitle }
                             if r["type"] as? String == "summary" { summary = titleValue(r["summary"]) ?? summary }
-                        }
+                            return true
+                        }) {}
                     }
                     if let start {
                         rows[tool + ":" + id] = SessionRecord(id: id, tool: tool, start: start.text, last_activity: last?.text, project: projectLabel(project), title: normalizedTitle([title, aiTitle, summary].first(where: { !$0.isEmpty }) ?? "作業名不明"))
