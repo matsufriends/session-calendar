@@ -65,6 +65,21 @@ final class MetadataTests: XCTestCase {
         }
         XCTAssertFalse(String(decoding: try JSONEncoder().encode(result.snapshot), as: UTF8.self).contains("private body"))
     }
+    func testCodexPayloadJSONNullFallsBackToOuterTimestamp() throws {
+        let repository = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+        let fixtureURL = repository.appendingPathComponent("tests/fixtures/session-dates.json")
+        let fixture = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: fixtureURL)) as? [String: Any])
+        let metadata = try XCTUnwrap(fixture["codex_timestamp_fallback"] as? [String: Any])
+        let record = try XCTUnwrap(metadata["record"] as? [String: Any])
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let codex = root.appendingPathComponent(".codex/sessions")
+        try FileManager.default.createDirectory(at: codex, withIntermediateDirectories: true)
+        let line = String(decoding: try JSONSerialization.data(withJSONObject: record), as: UTF8.self) + "\n"
+        try Data(line.utf8).write(to: codex.appendingPathComponent("fixture.jsonl"))
+        let result = Metadata.collect(home: root)
+        XCTAssertEqual(result.snapshot.sessions.first?.start, metadata["expected_start"] as? String)
+    }
     func testEndpointRejectsPlainHTTPEmbeddedCredentialQueryAndRedirectTarget() async {
         await MainActor.run {
             XCTAssertNotNil(AppModel.syncURL("https://calendar.example/api/sync"))

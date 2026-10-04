@@ -45,6 +45,27 @@
       "expected_jst_day": "2026-10-05"
     },
     {
+      "id": "midnight-24-hour",
+      "events": [{ "type": "user", "timestamp": "2026-10-04T24:00:00Z" }],
+      "expected_start": "2026-10-04T24:00:00Z",
+      "expected_last_activity": "2026-10-04T24:00:00Z",
+      "expected_jst_day": "2026-10-05"
+    },
+    {
+      "id": "invalid-24-hour-minute",
+      "events": [{ "type": "user", "timestamp": "2026-10-04T24:01:00Z" }],
+      "expected_start": null,
+      "expected_last_activity": null,
+      "expected_jst_day": null
+    },
+    {
+      "id": "invalid-24-hour-second",
+      "events": [{ "type": "user", "timestamp": "2026-10-04T24:00:01Z" }],
+      "expected_start": null,
+      "expected_last_activity": null,
+      "expected_jst_day": null
+    },
+    {
       "id": "invalid-only",
       "events": [{ "type": "user", "timestamp": "not-a-datetime" }],
       "expected_start": null,
@@ -65,5 +86,9 @@
       "expected_last_activity": null,
       "expected_jst_day": null
     }
-  ]
+  ],
+  "codex_timestamp_fallback": {
+    "record": { "type": "session_meta", "timestamp": "2026-10-04T15:30:00Z", "payload": { "id": "payload-null-fallback", "timestamp": null, "cwd": "/tmp/fixture" } },
+    "expected_start": "2026-10-04T15:30:00Z"
+  }
 }

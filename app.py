@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Local, read-only session metadata calendar. Standard library only."""
-import json, argparse, threading, time
-from datetime import datetime
+import json, argparse, threading, time, re
+from datetime import datetime, timedelta
 from pathlib import Path
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 ROOT=Path(__file__).parent
@@ -11,6 +11,17 @@ def parse_instant(value):
     """Parse an ISO-8601 timestamp only when it identifies an absolute instant."""
     if not isinstance(value,str) or not value: return None
     try:
+        match=re.fullmatch(r'(\d{4}-\d{2}-\d{2})T(\d{2}):(\d{2})(?::(\d{2})(\.(\d+))?)?(Z|[+-]\d{2}:?\d{2})',value,re.I)
+        if not match: return None
+        date,hour,minute,second,fraction,frac_digits,zone=match.groups()
+        hour=int(hour); minute=int(minute); second=int(second or 0)
+        if hour==24:
+            if minute or second or (frac_digits and int(frac_digits) != 0): return None
+            date=(datetime.fromisoformat(date)+timedelta(days=1)).date().isoformat()
+            hour=0
+            value=f'{date}T00:{match.group(3)}:{second:02d}{fraction or ""}{zone}'
+        elif hour>23: return None
+        if minute>59 or second>59: return None
         parsed=datetime.fromisoformat(value[:-1]+'+00:00' if value.endswith(('Z','z')) else value)
         return parsed if parsed.tzinfo is not None and parsed.utcoffset() is not None else None
     except (ValueError,OverflowError): return None
@@ -36,7 +47,7 @@ def collect(home=None):
                             r=json.loads(next(stream)); p=r.get('payload',{})
                             if r.get('type')!='session_meta': continue
                             sid=p.get('id') or p.get('session_id') or sid
-                            raw_start=p.get('timestamp') or r.get('timestamp'); parsed_start=parse_instant(raw_start)
+                            raw_start=p.get('timestamp') if isinstance(p.get('timestamp'),str) else r.get('timestamp'); parsed_start=parse_instant(raw_start)
                             start=(parsed_start,raw_start) if parsed_start else None
                             if raw_start and not parsed_start: errors.append('不正な日時の履歴を除外しました')
                             project=p.get('cwd','')

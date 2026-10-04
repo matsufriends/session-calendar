@@ -54,7 +54,7 @@ final class JSONLines {
 enum Metadata {
     private static func instant(_ value: Any?) -> (date: Date, text: String)? {
         guard let text = value as? String, !text.isEmpty else { return nil }
-        let pattern = #"^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2})(?:\.\d+)?)?(Z|[+-]\d{2}:?\d{2})$"#
+        let pattern = #"^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2})(\.(\d+))?)?(Z|[+-]\d{2}:?\d{2})$"#
         guard let match = try? NSRegularExpression(pattern: pattern).firstMatch(in: text, range: NSRange(text.startIndex..., in: text)) else { return nil }
         func component(_ index: Int, default defaultValue: Int? = nil) -> Int? {
             guard let range = Range(match.range(at: index), in: text) else { return defaultValue }
@@ -63,24 +63,36 @@ enum Metadata {
         guard let year = component(1), (1...9999).contains(year),
               let month = component(2), (1...12).contains(month),
               let day = component(3), (1...31).contains(day),
-              let hour = component(4), (0...23).contains(hour),
+              let hour = component(4), (0...24).contains(hour),
               let minute = component(5), (0...59).contains(minute),
               let second = component(6, default: 0), (0...59).contains(second) else { return nil }
+        let fraction = match.range(at: 7).location == NSNotFound ? "" : String(text[Range(match.range(at: 7), in: text)!])
+        let fractionDigits = match.range(at: 8).location == NSNotFound ? nil : String(text[Range(match.range(at: 8), in: text)!])
+        guard hour != 24 || (minute == 0 && second == 0 && (fractionDigits == nil || fractionDigits!.allSatisfy { $0 == "0" })) else { return nil }
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(secondsFromGMT: 0)!
         var wallTime = DateComponents()
         wallTime.calendar = calendar; wallTime.timeZone = calendar.timeZone
         wallTime.year = year; wallTime.month = month; wallTime.day = day
-        wallTime.hour = hour; wallTime.minute = minute; wallTime.second = second
+        wallTime.hour = hour == 24 ? 0 : hour; wallTime.minute = minute; wallTime.second = second
         guard let checked = calendar.date(from: wallTime) else { return nil }
         let roundTrip = calendar.dateComponents([.year, .month, .day, .hour, .minute, .second], from: checked)
         guard roundTrip.year == year, roundTrip.month == month, roundTrip.day == day,
-              roundTrip.hour == hour, roundTrip.minute == minute, roundTrip.second == second else { return nil }
+              roundTrip.hour == (hour == 24 ? 0 : hour), roundTrip.minute == minute, roundTrip.second == second else { return nil }
+        var normalized = text
+        if hour == 24 {
+            guard let tomorrow = calendar.date(byAdding: .day, value: 1, to: checked) else { return nil }
+            let next = calendar.dateComponents([.year, .month, .day], from: tomorrow)
+            guard let year = next.year, let month = next.month, let day = next.day,
+                  let zoneRange = Range(match.range(at: 9), in: text) else { return nil }
+            let zone = String(text[zoneRange])
+            normalized = String(format: "%04d-%02d-%02dT00:%02d:%02d%@%@", year, month, day, minute, second, fraction, zone)
+        }
         let fractional = ISO8601DateFormatter()
         fractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         let ordinary = ISO8601DateFormatter()
         ordinary.formatOptions = [.withInternetDateTime]
-        if let date = fractional.date(from: text) ?? ordinary.date(from: text) { return (date, text) }
+        if let date = fractional.date(from: normalized) ?? ordinary.date(from: normalized) { return (date, text) }
         return nil
     }
     static func projectLabel(_ path: String) -> String {
@@ -113,7 +125,7 @@ enum Metadata {
                     if tool == "Codex" {
                         guard let r = try lines.next(), r["type"] as? String == "session_meta", let p = r["payload"] as? [String: Any] else { continue }
                         id = p["id"] as? String ?? p["session_id"] as? String ?? id
-                        start = instant(p["timestamp"] ?? r["timestamp"])
+                        start = instant(p["timestamp"] as? String ?? r["timestamp"])
                         project = p["cwd"] as? String ?? ""
                         title = names[id]?["thread_name"] as? String ?? ""
                         last = instant(names[id]?["updated_at"])
