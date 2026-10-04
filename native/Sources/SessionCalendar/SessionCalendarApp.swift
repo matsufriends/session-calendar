@@ -18,15 +18,17 @@ enum Spacing {
     private let loginRegister: () throws -> Void
     private let openLoginSettings: () -> Void
     private let collectMetadata: () -> Collection
+    private let fetchCloud: () async -> [SessionRecord]?
     private let calendar = LocalCalendar()
     private var refreshTask: Task<Void, Never>?
     private var periodicTask: Task<Void, Never>?
     init(startBackgroundTasks: Bool = true,
          collectMetadata: @escaping () -> Collection = { Metadata.collect() },
+         fetchCloud: @escaping () async -> [SessionRecord]? = { await withTimeout(seconds: 30) { await CodexCloud.threads() } },
          loginStatusProvider: @escaping () -> SMAppService.Status = { SMAppService.mainApp.status },
          loginRegister: @escaping () throws -> Void = { try SMAppService.mainApp.register() },
          openLoginSettings: @escaping () -> Void = { SMAppService.openSystemSettingsLoginItems() }) {
-        self.collectMetadata = collectMetadata; self.loginStatusProvider = loginStatusProvider
+        self.collectMetadata = collectMetadata; self.fetchCloud = fetchCloud; self.loginStatusProvider = loginStatusProvider
         self.loginRegister = loginRegister; self.openLoginSettings = openLoginSettings
         loginStatus = loginStatusProvider()
         guard startBackgroundTasks else { return }
@@ -38,14 +40,19 @@ enum Spacing {
     func refresh() {
         guard !busy else { return }
         busy = true
-        let collector = collectMetadata
+        let collector = collectMetadata, cloudFetcher = fetchCloud
         refreshTask = Task {
-            let result = await Task.detached(priority: .utility) { collector() }.value
+            async let local = Task.detached(priority: .utility) { collector() }.value
+            let cloud = await cloudFetcher()
+            let result = await local
             busy = false
-            calendar.update(result.snapshot)
-            codexCount = result.snapshot.sessions.filter { $0.tool == "Codex" }.count
-            claudeCount = result.snapshot.sessions.filter { $0.tool == "Claude" }.count
-            errorMessage = result.failures > 0 ? "一部の履歴を読み取れませんでした" : nil
+            var sessions = result.snapshot.sessions
+            let known = Set(sessions.map { $0.tool + ":" + $0.id })
+            sessions += (cloud ?? []).filter { !known.contains($0.tool + ":" + $0.id) }
+            calendar.update(Snapshot(sessions: sessions))
+            codexCount = sessions.filter { $0.tool == "Codex" }.count
+            claudeCount = sessions.filter { $0.tool == "Claude" }.count
+            errorMessage = result.failures > 0 ? "一部の履歴を読み取れませんでした" : cloud == nil ? "Codexクラウドのスレッドを取得できませんでした" : nil
             status = "Claude \(claudeCount)件・Codex \(codexCount)件"
         }
     }
@@ -69,6 +76,15 @@ enum Spacing {
             try loginRegister(); refreshLoginStatus()
             if loginStatus == .requiresApproval { openLoginSettings() }
         } catch { refreshLoginStatus(); errorMessage = "ログイン時の起動を登録できませんでした" }
+    }
+}
+func withTimeout<T: Sendable>(seconds: Double, _ work: @escaping @Sendable () async -> T?) async -> T? {
+    await withTaskGroup(of: T?.self) { group in
+        group.addTask { await work() }
+        group.addTask { try? await Task.sleep(for: .seconds(seconds)); return nil }
+        let first = await group.next() ?? nil
+        group.cancelAll()
+        return first
     }
 }
 @main struct SessionCalendarApp: App {
